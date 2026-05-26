@@ -77,3 +77,21 @@ agent-office-collector --central-url http://127.0.0.1:8080 --enable-fake
 The MVP is for trusted internal use. Every API request uses the shared `AGENT_OFFICE_TOKEN`. Every control action is persisted as a command record with actor, target, payload summary, status, timestamps, and result.
 
 High-risk controls such as kill, restart, and pause are outside the MVP.
+
+## Token usage accounting
+
+The local collector estimates usage from local logs, not provider invoices. It reads Codex session token counts and Claude Code project usage records, then shows all-time, today, and this-week usage in the Office view.
+
+Default usage accounting settings:
+
+```bash
+agent-office-collector --central-url http://127.0.0.1:8080 \
+  --codex-sessions-dir ~/.codex/sessions \
+  --claude-projects-dir ~/.claude/projects \
+  --usage-timezone Asia/Singapore \
+  --usage-week-start-day 0 \
+  --usage-week-start-hour 0 \
+  --codex-weekly-credit-budget 5000
+```
+
+`--usage-week-start-day` follows Python weekday numbering, where Monday is `0`. Codex usage is reported in credits using the built-in model rate table; Claude Code usage is reported in USD using the built-in Claude model rate table.

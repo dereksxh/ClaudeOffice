@@ -104,6 +104,10 @@ def test_web_app_renders_token_usage_summary() -> None:
     assert "renderTokenUsage" in js
     assert "formatCompactNumber" in js
     assert "tokenUsageSummary" in js
+    assert "periods" in js
+    assert "model_breakdown" in js
+    assert "budget_used_ratio" in js
+    assert "formatUsageCost" in js
 
 
 def test_web_styles_keep_dense_console_layout() -> None:
@@ -113,6 +117,8 @@ def test_web_styles_keep_dense_console_layout() -> None:
     assert ".session-table" in css
     assert ".office-grid" in css
     assert ".usage-panel" in css
+    assert ".usage-periods" in css
+    assert ".usage-models" in css
 
 
 def test_web_styles_include_animated_office_projection() -> None:

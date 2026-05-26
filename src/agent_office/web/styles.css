@@ -348,9 +348,7 @@ dd {
 
 .usage-item {
   display: grid;
-  grid-template-columns: minmax(130px, 1fr) repeat(3, minmax(74px, auto));
-  align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: #151b22;
   color: var(--muted);
   font-size: 12px;
@@ -358,10 +356,23 @@ dd {
   padding: 10px 12px;
 }
 
-.usage-item > span:first-child {
+.usage-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.usage-main > span:first-child {
   display: grid;
   gap: 2px;
   min-width: 0;
+}
+
+.usage-main > span:last-child {
+  color: var(--text);
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .usage-item strong,
@@ -374,6 +385,35 @@ dd {
 .usage-item strong {
   color: var(--text);
   font-size: 13px;
+}
+
+.usage-periods,
+.usage-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.usage-periods span,
+.usage-models span {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 5px 7px;
+}
+
+.usage-models span {
+  display: inline-grid;
+  gap: 2px;
+  max-width: 180px;
+}
+
+.usage-models small {
+  font-size: 11px;
 }
 
 .office-grid {
@@ -1035,6 +1075,6 @@ dd {
   }
 
   .usage-item {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 }

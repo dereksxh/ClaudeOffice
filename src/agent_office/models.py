@@ -103,6 +103,45 @@ class AgentInstance(BaseModel):
     capabilities: list[Capability] = Field(default_factory=list)
 
 
+class TokenUsageModelBreakdown(BaseModel):
+    model: str
+    total_tokens: int = 0
+    input_tokens: int = 0
+    cached_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_creation_5m_input_tokens: int = 0
+    cache_creation_1h_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    output_tokens: int = 0
+    reasoning_output_tokens: int = 0
+    billable_unit: str | None = None
+    billable_amount: float = 0.0
+    request_count: int = 0
+    session_count: int = 0
+
+
+class TokenUsagePeriod(BaseModel):
+    period: str
+    start_at: datetime
+    end_at: datetime
+    total_tokens: int = 0
+    input_tokens: int = 0
+    cached_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_creation_5m_input_tokens: int = 0
+    cache_creation_1h_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    output_tokens: int = 0
+    reasoning_output_tokens: int = 0
+    billable_unit: str | None = None
+    billable_amount: float = 0.0
+    budget_amount: float | None = None
+    budget_used_ratio: float | None = None
+    request_count: int = 0
+    session_count: int = 0
+    model_breakdown: list[TokenUsageModelBreakdown] = Field(default_factory=list)
+
+
 class TokenUsageSnapshot(BaseModel):
     machine_id: str
     runtime_type: RuntimeType
@@ -112,13 +151,21 @@ class TokenUsageSnapshot(BaseModel):
     input_tokens: int = 0
     cached_input_tokens: int = 0
     cache_creation_input_tokens: int = 0
+    cache_creation_5m_input_tokens: int = 0
+    cache_creation_1h_input_tokens: int = 0
     cache_read_input_tokens: int = 0
     output_tokens: int = 0
     reasoning_output_tokens: int = 0
+    billable_unit: str | None = None
+    billable_amount: float = 0.0
+    budget_amount: float | None = None
+    budget_used_ratio: float | None = None
     request_count: int = 0
     session_count: int = 0
     updated_at: datetime
     source_ref: str | None = None
+    periods: list[TokenUsagePeriod] = Field(default_factory=list)
+    model_breakdown: list[TokenUsageModelBreakdown] = Field(default_factory=list)
 
 
 class EventRecord(BaseModel):

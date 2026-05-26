@@ -43,6 +43,10 @@ def build_adapters(args: argparse.Namespace) -> list[RuntimeAdapter]:
             CodexSessionDirectoryAdapter(
                 machine_id=args.machine_id,
                 sessions_dir=args.codex_sessions_dir,
+                usage_timezone=getattr(args, "usage_timezone", "Asia/Singapore"),
+                week_start_day=getattr(args, "usage_week_start_day", 0),
+                week_start_hour=getattr(args, "usage_week_start_hour", 0),
+                weekly_credit_budget=getattr(args, "codex_weekly_credit_budget", 5000.0),
             )
         )
     if args.claude_hook_log:
@@ -58,6 +62,9 @@ def build_adapters(args: argparse.Namespace) -> list[RuntimeAdapter]:
             ClaudeCodeUsageAdapter(
                 machine_id=args.machine_id,
                 projects_dir=args.claude_projects_dir,
+                usage_timezone=getattr(args, "usage_timezone", "Asia/Singapore"),
+                week_start_day=getattr(args, "usage_week_start_day", 0),
+                week_start_hour=getattr(args, "usage_week_start_hour", 0),
             )
         )
     if args.hermes_snapshot:
@@ -149,6 +156,22 @@ def main() -> None:
     parser.add_argument("--codex-sessions-dir", default=os.environ.get("AGENT_OFFICE_CODEX_SESSIONS_DIR"))
     parser.add_argument("--claude-hook-log", default=os.environ.get("AGENT_OFFICE_CLAUDE_HOOK_LOG"))
     parser.add_argument("--claude-projects-dir", default=os.environ.get("AGENT_OFFICE_CLAUDE_PROJECTS_DIR"))
+    parser.add_argument("--usage-timezone", default=os.environ.get("AGENT_OFFICE_USAGE_TIMEZONE", "Asia/Singapore"))
+    parser.add_argument(
+        "--usage-week-start-day",
+        type=int,
+        default=int(os.environ.get("AGENT_OFFICE_USAGE_WEEK_START_DAY", "0")),
+    )
+    parser.add_argument(
+        "--usage-week-start-hour",
+        type=int,
+        default=int(os.environ.get("AGENT_OFFICE_USAGE_WEEK_START_HOUR", "0")),
+    )
+    parser.add_argument(
+        "--codex-weekly-credit-budget",
+        type=float,
+        default=float(os.environ.get("AGENT_OFFICE_CODEX_WEEKLY_CREDIT_BUDGET", "5000")),
+    )
     parser.add_argument("--hermes-snapshot", default=os.environ.get("AGENT_OFFICE_HERMES_SNAPSHOT"))
     parser.add_argument("--hermes-home", default=os.environ.get("AGENT_OFFICE_HERMES_HOME"))
     parser.add_argument("--command-outbox-dir", default=os.environ.get("AGENT_OFFICE_COMMAND_OUTBOX_DIR"))

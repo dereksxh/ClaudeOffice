@@ -150,6 +150,13 @@ def _int_payload(payload: dict[str, object], field: str) -> int:
     return 0
 
 
+def _float_payload(payload: dict[str, object], field: str) -> float:
+    value = payload.get(field)
+    if isinstance(value, int | float):
+        return float(value)
+    return 0.0
+
+
 def _usage_snapshot_from_event(event: EventRecord) -> TokenUsageSnapshot:
     payload = event.payload
     return TokenUsageSnapshot(
@@ -161,13 +168,21 @@ def _usage_snapshot_from_event(event: EventRecord) -> TokenUsageSnapshot:
         input_tokens=_int_payload(payload, "input_tokens"),
         cached_input_tokens=_int_payload(payload, "cached_input_tokens"),
         cache_creation_input_tokens=_int_payload(payload, "cache_creation_input_tokens"),
+        cache_creation_5m_input_tokens=_int_payload(payload, "cache_creation_5m_input_tokens"),
+        cache_creation_1h_input_tokens=_int_payload(payload, "cache_creation_1h_input_tokens"),
         cache_read_input_tokens=_int_payload(payload, "cache_read_input_tokens"),
         output_tokens=_int_payload(payload, "output_tokens"),
         reasoning_output_tokens=_int_payload(payload, "reasoning_output_tokens"),
+        billable_unit=payload.get("billable_unit") if isinstance(payload.get("billable_unit"), str) else None,
+        billable_amount=_float_payload(payload, "billable_amount"),
+        budget_amount=_float_payload(payload, "budget_amount") if "budget_amount" in payload else None,
+        budget_used_ratio=_float_payload(payload, "budget_used_ratio") if "budget_used_ratio" in payload else None,
         request_count=_int_payload(payload, "request_count"),
         session_count=_int_payload(payload, "session_count"),
         updated_at=event.timestamp,
         source_ref=event.source_ref,
+        periods=payload.get("periods") if isinstance(payload.get("periods"), list) else [],
+        model_breakdown=payload.get("model_breakdown") if isinstance(payload.get("model_breakdown"), list) else [],
     )
 
 

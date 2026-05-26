@@ -8,6 +8,7 @@ from typing import Any
 
 from agent_office.collector.adapters.base import AdapterCommandResult
 from agent_office.collector.adapters.files import append_command_outbox, parse_timestamp, read_jsonl_records, record_payload
+from agent_office.collector.usage_accounting import UsageBucket, period_payload, usage_period_bounds
 from agent_office.models import Capability, EventRecord, EventType, RuntimeType
 from agent_office.models import ControlCommand
 
@@ -64,6 +65,16 @@ def _token_total(usage: dict[str, Any]) -> int:
         + _int_value(usage.get("output_tokens"))
         + _int_value(usage.get("reasoning_output_tokens"))
     )
+
+
+def _codex_usage_tokens(usage: dict[str, Any]) -> dict[str, int]:
+    return {
+        "input_tokens": _int_value(usage.get("input_tokens")),
+        "cached_input_tokens": _int_value(usage.get("cached_input_tokens")),
+        "output_tokens": _int_value(usage.get("output_tokens")),
+        "reasoning_output_tokens": _int_value(usage.get("reasoning_output_tokens")),
+        "total_tokens": _token_total(usage),
+    }
 
 
 def _event_id(machine_id: str, session_id: str, hook_event_name: str, payload: dict[str, Any]) -> str:
@@ -170,12 +181,20 @@ class CodexSessionDirectoryAdapter:
         max_sessions: int = 20,
         max_usage_sessions: int | None = None,
         active_ttl_seconds: int = 600,
+        usage_timezone: str = "Asia/Singapore",
+        week_start_day: int = 0,
+        week_start_hour: int = 0,
+        weekly_credit_budget: float = 5000.0,
     ) -> None:
         self.machine_id = machine_id
         self.sessions_dir = Path(sessions_dir)
         self.max_sessions = max_sessions
         self.max_usage_sessions = max_usage_sessions
         self.active_ttl_seconds = active_ttl_seconds
+        self.usage_timezone = usage_timezone
+        self.week_start_day = week_start_day
+        self.week_start_hour = week_start_hour
+        self.weekly_credit_budget = weekly_credit_budget
 
     def snapshot_events(self, now: datetime) -> list[EventRecord]:
         if not self.sessions_dir.exists():
@@ -259,19 +278,18 @@ class CodexSessionDirectoryAdapter:
         )
 
     def _usage_event_from_session_files(self, paths: list[Path], now: datetime) -> EventRecord:
-        totals = {
-            "input_tokens": 0,
-            "cached_input_tokens": 0,
-            "output_tokens": 0,
-            "reasoning_output_tokens": 0,
-            "total_tokens": 0,
-        }
+        bounds = usage_period_bounds(now, self.usage_timezone, self.week_start_day, self.week_start_hour)
+        all_usage = UsageBucket()
+        today_usage = UsageBucket()
+        week_usage = UsageBucket()
         request_count = 0
         session_count = 0
         latest_timestamp = now
 
         for path in paths:
             latest_usage: dict[str, Any] | None = None
+            latest_model = "unknown"
+            current_model = "unknown"
             file_has_usage = False
             try:
                 lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -287,29 +305,61 @@ class CodexSessionDirectoryAdapter:
                     continue
                 if not isinstance(record, dict):
                     continue
-                latest_timestamp = parse_timestamp(record.get("timestamp"), latest_timestamp)
+                record_timestamp = parse_timestamp(record.get("timestamp"), latest_timestamp)
+                latest_timestamp = record_timestamp
                 payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
+                if record.get("type") in {"session_meta", "turn_context"}:
+                    model = payload.get("model")
+                    if isinstance(model, str) and model:
+                        current_model = model
+                    continue
                 info = payload.get("info") if isinstance(payload.get("info"), dict) else {}
                 usage = info.get("total_token_usage") if isinstance(info.get("total_token_usage"), dict) else None
                 if record.get("type") != "event_msg" or payload.get("type") != "token_count" or usage is None:
                     continue
                 latest_usage = usage
+                latest_model = current_model
                 request_count += 1
                 file_has_usage = True
+                delta_usage = info.get("last_token_usage") if isinstance(info.get("last_token_usage"), dict) else usage
+                tokens = _codex_usage_tokens(delta_usage)
+                if record_timestamp >= bounds["today"]:
+                    today_usage.add(current_model, tokens, str(path))
+                if record_timestamp >= bounds["week"]:
+                    week_usage.add(current_model, tokens, str(path))
 
             if latest_usage is None:
                 continue
             if file_has_usage:
                 session_count += 1
-            totals["input_tokens"] += _int_value(latest_usage.get("input_tokens"))
-            totals["cached_input_tokens"] += _int_value(latest_usage.get("cached_input_tokens"))
-            totals["output_tokens"] += _int_value(latest_usage.get("output_tokens"))
-            totals["reasoning_output_tokens"] += _int_value(latest_usage.get("reasoning_output_tokens"))
-            totals["total_tokens"] += _token_total(latest_usage)
+            all_usage.add(latest_model, _codex_usage_tokens(latest_usage), str(path), request_count=0)
+
+        payload = all_usage.to_payload(RuntimeType.CODEX, "credits")
+        payload["request_count"] = request_count
+        payload["session_count"] = session_count
+        periods = [
+            period_payload(
+                "today",
+                today_usage,
+                RuntimeType.CODEX,
+                "credits",
+                bounds["today"],
+                now,
+            ),
+            period_payload(
+                "week",
+                week_usage,
+                RuntimeType.CODEX,
+                "credits",
+                bounds["week"],
+                now,
+                self.weekly_credit_budget,
+            ),
+        ]
 
         raw = (
             f"{self.machine_id}:{self.sessions_dir}:{len(paths)}:{request_count}:"
-            f"{totals['total_tokens']}:{now.isoformat()}"
+            f"{payload['total_tokens']}:{payload['billable_amount']}:{now.isoformat()}"
         )
         return EventRecord(
             event_id="codex-usage-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24],
@@ -320,9 +370,8 @@ class CodexSessionDirectoryAdapter:
             payload={
                 "scope": "local_logs",
                 "label": "Codex local usage",
-                **totals,
-                "request_count": request_count,
-                "session_count": session_count,
+                **payload,
+                "periods": periods,
                 "latest_usage_at": latest_timestamp.isoformat(),
             },
             source_ref=str(self.sessions_dir),

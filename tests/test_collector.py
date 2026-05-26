@@ -447,6 +447,90 @@ def test_codex_session_directory_adapter_emits_token_usage_snapshot(tmp_path) ->
     assert usage.payload["session_count"] == 1
 
 
+def test_codex_usage_snapshot_includes_periods_models_and_credit_cost(tmp_path) -> None:
+    sessions_dir = tmp_path / "sessions"
+    session_file = sessions_dir / "2026" / "05" / "26" / "rollout.jsonl"
+    session_file.parent.mkdir(parents=True)
+    session_file.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": "2026-05-25T00:59:00Z",
+                        "type": "session_meta",
+                        "payload": {"id": "codex-session-1", "model": "gpt-5.4"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-05-25T01:00:00Z",
+                        "type": "event_msg",
+                        "payload": {
+                            "type": "token_count",
+                            "info": {
+                                "total_token_usage": {
+                                    "input_tokens": 1_000_000,
+                                    "cached_input_tokens": 0,
+                                    "output_tokens": 0,
+                                    "total_tokens": 1_000_000,
+                                },
+                                "last_token_usage": {
+                                    "input_tokens": 1_000_000,
+                                    "cached_input_tokens": 0,
+                                    "output_tokens": 0,
+                                    "total_tokens": 1_000_000,
+                                },
+                            },
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-05-25T17:00:00Z",
+                        "type": "event_msg",
+                        "payload": {
+                            "type": "token_count",
+                            "info": {
+                                "total_token_usage": {
+                                    "input_tokens": 2_000_000,
+                                    "cached_input_tokens": 200_000,
+                                    "output_tokens": 100_000,
+                                    "total_tokens": 2_100_000,
+                                },
+                                "last_token_usage": {
+                                    "input_tokens": 1_000_000,
+                                    "cached_input_tokens": 200_000,
+                                    "output_tokens": 100_000,
+                                    "total_tokens": 1_100_000,
+                                },
+                            },
+                        },
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    adapter = CodexSessionDirectoryAdapter(machine_id="machine-a", sessions_dir=sessions_dir, max_sessions=5)
+
+    events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 0, tzinfo=UTC))
+    usage = events[-1].payload
+
+    today = next(period for period in usage["periods"] if period["period"] == "today")
+    week = next(period for period in usage["periods"] if period["period"] == "week")
+    model = usage["model_breakdown"][0]
+    assert usage["billable_unit"] == "credits"
+    assert usage["billable_amount"] == pytest.approx(151.25)
+    assert today["billable_amount"] == pytest.approx(88.75)
+    assert today["total_tokens"] == 1_100_000
+    assert week["budget_amount"] == 5000
+    assert week["billable_amount"] == pytest.approx(151.25)
+    assert week["request_count"] == 2
+    assert model["model"] == "gpt-5.4"
+    assert model["billable_amount"] == pytest.approx(151.25)
+
+
 def test_claude_usage_adapter_deduplicates_message_usage(tmp_path) -> None:
     projects_dir = tmp_path / "projects"
     project_dir = projects_dir / "repo"
@@ -482,6 +566,64 @@ def test_claude_usage_adapter_deduplicates_message_usage(tmp_path) -> None:
     assert events[0].payload["output_tokens"] == 40
     assert events[0].payload["total_tokens"] == 100
     assert events[0].payload["request_count"] == 1
+
+
+def test_claude_usage_snapshot_includes_periods_models_and_usd_cost(tmp_path) -> None:
+    projects_dir = tmp_path / "projects"
+    project_dir = projects_dir / "repo"
+    project_dir.mkdir(parents=True)
+    records = [
+        {
+            "timestamp": "2026-05-25T01:00:00Z",
+            "requestId": "req-week",
+            "message": {
+                "id": "msg-week",
+                "model": "claude-sonnet-4-6",
+                "usage": {
+                    "input_tokens": 1_000_000,
+                    "cache_creation_input_tokens": 1_000_000,
+                    "cache_read_input_tokens": 500_000,
+                    "output_tokens": 100_000,
+                    "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 1_000_000,
+                    },
+                },
+            },
+        },
+        {
+            "timestamp": "2026-05-25T17:00:00Z",
+            "requestId": "req-today",
+            "message": {
+                "id": "msg-today",
+                "model": "claude-haiku-4-5-20251001",
+                "usage": {
+                    "input_tokens": 1_000_000,
+                    "cache_creation_input_tokens": 0,
+                    "cache_read_input_tokens": 0,
+                    "output_tokens": 1_000_000,
+                },
+            },
+        },
+    ]
+    (project_dir / "session.jsonl").write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n",
+        encoding="utf-8",
+    )
+    adapter = ClaudeCodeUsageAdapter(machine_id="machine-a", projects_dir=projects_dir)
+
+    events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 0, tzinfo=UTC))
+    usage = events[0].payload
+
+    today = next(period for period in usage["periods"] if period["period"] == "today")
+    week = next(period for period in usage["periods"] if period["period"] == "week")
+    models = {item["model"]: item for item in usage["model_breakdown"]}
+    assert usage["billable_unit"] == "usd"
+    assert usage["billable_amount"] == pytest.approx(16.65)
+    assert today["billable_amount"] == pytest.approx(6.0)
+    assert week["billable_amount"] == pytest.approx(16.65)
+    assert models["claude-sonnet-4-6"]["billable_amount"] == pytest.approx(10.65)
+    assert models["claude-haiku-4-5-20251001"]["billable_amount"] == pytest.approx(6.0)
 
 
 def test_hermes_snapshot_file_adapter_maps_snapshot_file(tmp_path) -> None:

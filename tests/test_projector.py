@@ -146,8 +146,33 @@ def test_projector_includes_latest_token_usage_snapshot() -> None:
                 "cached_input_tokens": 50,
                 "output_tokens": 25,
                 "reasoning_output_tokens": 25,
+                "billable_unit": "credits",
+                "billable_amount": 1.5,
+                "budget_amount": 5000,
+                "budget_used_ratio": 0.0003,
                 "request_count": 3,
                 "session_count": 2,
+                "periods": [
+                    {
+                        "period": "today",
+                        "start_at": "2026-05-26T00:00:00+00:00",
+                        "end_at": "2026-05-26T03:01:00+00:00",
+                        "total_tokens": 50,
+                        "billable_unit": "credits",
+                        "billable_amount": 0.5,
+                    }
+                ],
+                "model_breakdown": [
+                    {
+                        "model": "gpt-5.4",
+                        "total_tokens": 250,
+                        "input_tokens": 150,
+                        "cached_input_tokens": 50,
+                        "output_tokens": 25,
+                        "billable_unit": "credits",
+                        "billable_amount": 1.5,
+                    }
+                ],
             },
             source_ref="codex:sessions",
         ),
@@ -159,6 +184,9 @@ def test_projector_includes_latest_token_usage_snapshot() -> None:
     assert state.token_usage[0].runtime_type == RuntimeType.CODEX
     assert state.token_usage[0].total_tokens == 250
     assert state.token_usage[0].updated_at == datetime(2026, 5, 26, 3, 1, tzinfo=UTC)
+    assert state.token_usage[0].billable_amount == 1.5
+    assert state.token_usage[0].periods[0].period == "today"
+    assert state.token_usage[0].model_breakdown[0].model == "gpt-5.4"
 
 
 def test_session_updated_refreshes_metadata_and_capabilities() -> None:

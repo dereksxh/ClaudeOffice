@@ -305,6 +305,60 @@ function formatCompactNumber(value) {
   }).format(number);
 }
 
+function formatUsageCost(value, unit) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) {
+    return unit === "usd" ? "$0.00" : "0";
+  }
+  if (unit === "usd") {
+    return `$${amount.toFixed(amount >= 10 ? 2 : 3)}`;
+  }
+  if (unit === "credits") {
+    return `${amount.toFixed(amount >= 100 ? 1 : 2)} cr`;
+  }
+  return formatCompactNumber(amount);
+}
+
+function usagePeriod(usage, periodName) {
+  return (usage.periods || []).find((period) => period.period === periodName) || null;
+}
+
+function formatBudget(usage) {
+  const week = usagePeriod(usage, "week");
+  const budgetSource = week?.budget_amount ? week : usage;
+  if (!budgetSource.budget_amount) {
+    return "";
+  }
+  const percent = Math.min(Number(budgetSource.budget_used_ratio || 0) * 100, 999);
+  return `${percent.toFixed(percent >= 10 ? 1 : 2)}% / ${formatUsageCost(
+    budgetSource.budget_amount,
+    budgetSource.billable_unit || usage.billable_unit,
+  )}`;
+}
+
+function renderUsageModels(usage) {
+  const models = [...(usage.model_breakdown || [])]
+    .sort((left, right) => Number(right.billable_amount || 0) - Number(left.billable_amount || 0))
+    .slice(0, 3);
+  if (models.length === 0) {
+    return "";
+  }
+  return `
+    <div class="usage-models">
+      ${models
+        .map(
+          (model) => `
+            <span>
+              <strong>${escapeHtml(model.model || "unknown")}</strong>
+              <small>${formatUsageCost(model.billable_amount, model.billable_unit || usage.billable_unit)}</small>
+            </span>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
 function renderTokenUsage() {
   if (!tokenUsageSummary) {
     return;
@@ -341,15 +395,25 @@ function renderTokenUsage() {
     const cachedTokens =
       Number(usage.cached_input_tokens || 0) ||
       Number(usage.cache_creation_input_tokens || 0) + Number(usage.cache_read_input_tokens || 0);
-    const inputTokens = Number(usage.input_tokens || 0) + cachedTokens;
+    const today = usagePeriod(usage, "today");
+    const week = usagePeriod(usage, "week");
+    const budget = formatBudget(usage);
     item.innerHTML = `
-      <span>
-        <strong>${escapeHtml(runtimeTypeLabel(usage.runtime_type))}</strong>
-        <small>${escapeHtml(usage.machine_id || "-")} / ${escapeHtml(usage.scope || "local_logs")}</small>
-      </span>
-      <span>${formatCompactNumber(usage.total_tokens)} total</span>
-      <span>${formatCompactNumber(inputTokens)} in</span>
-      <span>${formatCompactNumber(usage.output_tokens)} out</span>
+      <div class="usage-main">
+        <span>
+          <strong>${escapeHtml(runtimeTypeLabel(usage.runtime_type))}</strong>
+          <small>${escapeHtml(usage.machine_id || "-")} / ${escapeHtml(usage.scope || "local_logs")}</small>
+        </span>
+        <span>${formatUsageCost(usage.billable_amount, usage.billable_unit)}</span>
+      </div>
+      <div class="usage-periods">
+        <span>Total ${formatCompactNumber(usage.total_tokens)} tok</span>
+        <span>Today ${formatUsageCost(today?.billable_amount, today?.billable_unit || usage.billable_unit)}</span>
+        <span>This week ${formatUsageCost(week?.billable_amount, week?.billable_unit || usage.billable_unit)}</span>
+        <span>${formatCompactNumber(cachedTokens)} cached</span>
+        ${budget ? `<span>Budget ${escapeHtml(budget)}</span>` : ""}
+      </div>
+      ${renderUsageModels(usage)}
     `;
     list.append(item);
   });
