@@ -122,6 +122,7 @@ def test_web_app_uses_generated_office_sprite_assets() -> None:
     assert "officeSpriteActivity" in js
     assert "generated-agent" in js
     assert "generated-desk" in js
+    assert "idle-agent" in js
     assert "/assets/office/backgrounds/office.png" in css
     assert "/assets/office/props/workstation-desk.png" in css
     assert "calf/typing-sheet-256.png" in css

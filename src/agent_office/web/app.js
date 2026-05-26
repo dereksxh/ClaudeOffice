@@ -584,10 +584,8 @@ function ensureOfficeIdleNode(idleKey) {
   const node = document.createElement("button");
   node.type = "button";
   node.innerHTML = `
-    <span class="idle-stack" aria-hidden="true">
-      <span></span>
-      <span></span>
-      <span></span>
+    <span class="idle-sprite-preview" aria-hidden="true">
+      <span class="generated-agent idle-agent" data-field="idle-agent"></span>
     </span>
     <span class="office-idle-copy">
       <strong data-field="idle-count"></strong>
@@ -608,6 +606,19 @@ function updateOfficeIdleNode(node, runtimeType, idleSessions) {
   const selected = selectedIdle ? "selected" : "";
   node.className = ["office-idle-summary", `runtime-${statusClass(runtimeType)}`, selected].filter(Boolean).join(" ");
   node.dataset.sessionKey = sessionKey(representativeSession);
+  const idleActivity = idleActivityForSession(representativeSession);
+  const idleSprite = node.querySelector('[data-field="idle-agent"]');
+  const idleSpriteClassName = [
+    "generated-agent",
+    "idle-agent",
+    `asset-${officeSpriteCharacter(runtimeType)}`,
+    `asset-${officeSpriteActivity(representativeSession, idleActivity)}`,
+    `activity-${idleActivity}`,
+    mascotForRuntime(runtimeType),
+  ].join(" ");
+  if (idleSprite && idleSprite.className !== idleSpriteClassName) {
+    idleSprite.className = idleSpriteClassName;
+  }
   node.querySelector('[data-field="idle-count"]').textContent = `${idleSessions.length} idle desks`;
   const projectNames = Array.from(new Set(idleSessions.map((session) => session.project_name).filter(Boolean)));
   node.querySelector('[data-field="idle-projects"]').textContent =

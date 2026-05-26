@@ -543,9 +543,9 @@ dd {
 .office-idle-summary {
   display: grid;
   align-content: center;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 74px minmax(0, 1fr);
   gap: 10px;
-  min-height: 118px;
+  min-height: 132px;
   border: 1px dashed rgba(142, 154, 168, 0.78);
   background: rgba(255, 255, 255, 0.58);
   color: #202a35;
@@ -556,6 +556,19 @@ dd {
 .office-idle-summary:hover,
 .office-idle-summary.selected {
   border-color: rgba(79, 134, 191, 0.82);
+}
+
+.idle-sprite-preview {
+  position: relative;
+  display: block;
+  min-height: 74px;
+  overflow: hidden;
+}
+
+.office-idle-summary .idle-sprite-preview .generated-agent {
+  left: -8px;
+  bottom: -8px;
+  transform: scale(0.66);
 }
 
 .idle-stack {
