@@ -7,10 +7,54 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <main id="app">
-      <h1>Agent Office</h1>
-      <p>Loading agent state...</p>
-    </main>
+    <div id="app" class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <h1>Agent Office</h1>
+          <span id="connection-status" class="connection-status">Starting</span>
+        </div>
+        <section>
+          <h2>Machines</h2>
+          <div id="machine-list" class="machine-list"></div>
+        </section>
+      </aside>
+
+      <main class="main-panel">
+        <header class="toolbar">
+          <div>
+            <h2>Console</h2>
+            <p id="state-summary">No state loaded</p>
+          </div>
+          <button id="refresh-button" type="button">Refresh</button>
+        </header>
+
+        <div class="console-grid">
+          <section class="table-panel">
+            <table class="session-table">
+              <thead>
+                <tr>
+                  <th>Session</th>
+                  <th>Runtime</th>
+                  <th>Status</th>
+                  <th>Task</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="session-table"></tbody>
+            </table>
+          </section>
+
+          <aside id="session-detail" class="detail-panel"></aside>
+        </div>
+
+        <section>
+          <header class="section-header">
+            <h2>Office</h2>
+          </header>
+          <div id="office-view" class="office-grid"></div>
+        </section>
+      </main>
+    </div>
     <script src="/app.js"></script>
   </body>
 </html>
