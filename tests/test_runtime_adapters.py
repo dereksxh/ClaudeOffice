@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime
 
 from agent_office.collector.adapters.claude_code import map_claude_hook_event
@@ -47,6 +48,10 @@ def test_claude_task_tool_maps_to_agent_started_event() -> None:
     assert event.runtime_type == RuntimeType.CLAUDE_CODE
     assert event.event_type == EventType.AGENT_STARTED
     assert event.agent_id == "subagent_tool-1"
+    expected_event_id = "claude-" + hashlib.sha256(
+        "machine-a:claude-1:pre_tool_use:tool-1:subagent_tool-1".encode()
+    ).hexdigest()[:24]
+    assert event.event_id == expected_event_id
     assert event.payload["agent_type"] == "reviewer"
     assert event.payload["task_description"] == "Review storage module"
 

@@ -15,8 +15,8 @@ CLAUDE_CAPABILITIES = [
 ]
 
 
-def _event_id(machine_id: str, session_id: str, hook_event_name: str, payload: dict[str, Any]) -> str:
-    raw = f"{machine_id}:{session_id}:{hook_event_name}:{payload.get('tool_use_id')}:{payload.get('agent_id')}"
+def _event_id(machine_id: str, session_id: str, hook_event_name: str, tool_use_id: str, agent_id: str) -> str:
+    raw = f"{machine_id}:{session_id}:{hook_event_name}:{tool_use_id}:{agent_id}"
     return "claude-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
@@ -72,7 +72,7 @@ def map_claude_hook_event(
         event_type = EventType.SESSION_STOPPED
 
     return EventRecord(
-        event_id=_event_id(machine_id, session_id, hook_event_name, payload),
+        event_id=_event_id(machine_id, session_id, hook_event_name, tool_use_id, agent_id),
         machine_id=machine_id,
         runtime_type=RuntimeType.CLAUDE_CODE,
         session_id=session_id,
