@@ -425,9 +425,7 @@ dd {
 
 .office-floor {
   position: relative;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  align-items: start;
-  gap: 32px;
+  display: block;
   overflow: hidden;
   border: 0;
   border-radius: var(--radius);
@@ -441,6 +439,10 @@ dd {
 }
 
 .office-runtime-zone {
+  position: absolute;
+  top: calc(18px + var(--runtime-index) * 44px);
+  left: 28px;
+  z-index: 20;
   display: grid;
   gap: 18px;
   border: 0;
@@ -509,8 +511,12 @@ dd {
 }
 
 .office-desk {
-  position: relative;
+  position: absolute;
+  top: var(--actor-y);
+  left: var(--actor-x);
+  z-index: var(--actor-z);
   display: grid;
+  width: 178px;
   min-height: 226px;
   overflow: visible;
   border: 0;
@@ -519,6 +525,7 @@ dd {
   color: #202a35;
   padding: 0;
   text-align: left;
+  transform: translate(-50%, -50%);
 }
 
 .office-desk::before {
@@ -543,6 +550,10 @@ dd {
 .office-desk.selected .office-desk-copy {
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 0 0 2px rgba(79, 134, 191, 0.22), 0 10px 24px rgba(26, 39, 54, 0.14);
+}
+
+.office-desk.walking-to-desk {
+  animation: actorWalkToDesk 2200ms ease-out both;
 }
 
 .office-idle-summary {
@@ -662,6 +673,19 @@ dd {
 .office-desk.waiting-permission,
 .office-desk.waiting {
   border-color: transparent;
+}
+
+.office-place-lounge .generated-desk,
+.office-desk.walking-to-desk .generated-desk {
+  opacity: 0;
+}
+
+.office-place-lounge .desk-scene {
+  margin-top: 44px;
+}
+
+.office-desk.walking-to-desk .generated-agent {
+  animation-duration: 560ms;
 }
 
 .office-desk.lost,
@@ -1214,6 +1238,17 @@ dd {
     filter:
       drop-shadow(0 12px 14px rgba(80, 61, 42, 0.18))
       drop-shadow(0 0 16px rgba(74, 151, 102, 0.32));
+  }
+}
+
+@keyframes actorWalkToDesk {
+  from {
+    top: var(--walk-from-y);
+    left: var(--walk-from-x);
+  }
+  to {
+    top: var(--actor-y);
+    left: var(--actor-x);
   }
 }
 

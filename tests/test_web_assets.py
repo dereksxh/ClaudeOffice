@@ -101,6 +101,23 @@ def test_web_app_renders_idle_office_sessions_as_desks() -> None:
     assert "office-idle-summary" not in js
 
 
+def test_web_app_assigns_independent_office_behaviors() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert "officeBehaviorState" in js
+    assert "officeIdlePlans" in js
+    assert "officeDeskPosition" in js
+    assert "officeLoungePosition" in js
+    assert "chatMembers" in js
+    assert "idleSessions.length >= 2" in js
+    assert "walking-to-desk" in js
+    assert "scheduleOfficeRender" in js
+    assert ".office-place-lounge" in css
+    assert ".office-desk.walking-to-desk" in css
+    assert "@keyframes actorWalkToDesk" in css
+
+
 def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
     js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 

@@ -7,9 +7,13 @@ let activeView = "console";
 let socket = null;
 const officeRuntimeNodes = new Map();
 const officeDeskNodes = new Map();
+const officeBehaviorState = new Map();
 const RUNTIME_ORDER = ["codex", "hermes", "claude_code"];
 const IDLE_ACTIVITIES = ["sleeping", "phone", "chatting"];
 const WAITING_SPRITE_STATUSES = new Set(["waiting_permission", "waiting_input", "blocked", "starting", "waiting"]);
+const OFFICE_WALK_MS = 2200;
+const OFFICE_BEHAVIOR_SLOT_MS = 60000;
+let officeRenderTimer = null;
 
 const machineList = document.getElementById("machine-list");
 const sessionTable = document.getElementById("session-table");
@@ -96,6 +100,9 @@ function officeSpriteCharacter(runtimeType) {
 }
 
 function officeSpriteActivity(session, idleActivity) {
+  if (idleActivity === "walk") {
+    return "walk";
+  }
   if (session.status === "working") {
     return "typing";
   }
@@ -125,6 +132,142 @@ function stableHash(value) {
 function idleActivityForSession(session) {
   const index = stableHash(sessionKey(session)) % IDLE_ACTIVITIES.length;
   return IDLE_ACTIVITIES[index];
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function officeDeskPosition(runtimeType, sessionIndex) {
+  const configs = {
+    codex: { x: 10, y: 24, columns: 5, xStep: 16, yStep: 14 },
+    hermes: { x: 12, y: 71, columns: 4, xStep: 18, yStep: 10 },
+    claude_code: { x: 60, y: 70, columns: 3, xStep: 14, yStep: 10 },
+    other: { x: 66, y: 26, columns: 3, xStep: 12, yStep: 12 },
+  };
+  const config = configs[runtimeType] || configs.other;
+  const column = sessionIndex % config.columns;
+  const row = Math.floor(sessionIndex / config.columns);
+  return {
+    place: "desk",
+    x: clamp(config.x + column * config.xStep + (row % 2) * 3, 8, 92),
+    y: clamp(config.y + row * config.yStep, 18, 86),
+  };
+}
+
+function officeLoungePosition(loungeIndex, memberIndex, memberCount) {
+  const lounges = [
+    { place: "lounge", label: "休息室", x: 72, y: 25 },
+    { place: "lounge", label: "茶水区", x: 80, y: 53 },
+    { place: "lounge", label: "沙发区", x: 58, y: 76 },
+  ];
+  const lounge = lounges[loungeIndex % lounges.length];
+  const spread = memberCount > 1 ? memberIndex - (memberCount - 1) / 2 : 0;
+  return {
+    place: lounge.place,
+    label: lounge.label,
+    x: clamp(lounge.x + spread * 7, 8, 92),
+    y: clamp(lounge.y + (memberIndex % 2) * 4, 18, 86),
+  };
+}
+
+function officeIdlePlans(sessionsByRuntime, now) {
+  const plans = new Map();
+  const slot = Math.floor(now / OFFICE_BEHAVIOR_SLOT_MS);
+  for (const [runtimeType, sessions] of sessionsByRuntime) {
+    const idleSessions = sessions
+      .filter((session) => session.status === "idle")
+      .sort((left, right) => sessionKey(left).localeCompare(sessionKey(right)));
+    const chatMembers = new Set();
+    if (idleSessions.length >= 2) {
+      const groupSize = Math.min(3, idleSessions.length);
+      const startIndex = stableHash(`${runtimeType}:${slot}:chat`) % idleSessions.length;
+      for (let index = 0; index < groupSize; index += 1) {
+        chatMembers.add(sessionKey(idleSessions[(startIndex + index) % idleSessions.length]));
+      }
+    }
+    let chatIndex = 0;
+    idleSessions.forEach((session) => {
+      const key = sessionKey(session);
+      if (chatMembers.has(key)) {
+        const memberIndex = chatIndex;
+        chatIndex += 1;
+        plans.set(key, {
+          activity: "chatting",
+          place: "lounge",
+          loungeIndex: stableHash(`${runtimeType}:${slot}:lounge`) % 3,
+          memberIndex,
+          memberCount: chatMembers.size,
+        });
+        return;
+      }
+      const soloActivities = ["sleeping", "phone"];
+      plans.set(key, {
+        activity: soloActivities[stableHash(`${key}:${slot}:activity`) % soloActivities.length],
+        place: stableHash(`${key}:${slot}:place`) % 3 === 0 ? "lounge" : "desk",
+        loungeIndex: stableHash(`${key}:${slot}:lounge`) % 3,
+        memberIndex: 0,
+        memberCount: 1,
+      });
+    });
+  }
+  return plans;
+}
+
+function scheduleOfficeRender(delayMs) {
+  if (officeRenderTimer !== null) {
+    clearTimeout(officeRenderTimer);
+  }
+  officeRenderTimer = setTimeout(() => {
+    officeRenderTimer = null;
+    if (activeView === "office") {
+      renderOffice();
+    }
+  }, Math.max(120, delayMs));
+}
+
+function officeBehaviorForSession(session, sessionIndex, idlePlans, now) {
+  const deskPosition = officeDeskPosition(session.runtime_type, sessionIndex);
+  const key = sessionKey(session);
+  const previous = officeBehaviorState.get(key) || {};
+  let target = deskPosition;
+  let activity = session.status === "working" ? "typing" : idleActivityForSession(session);
+  if (session.status === "idle") {
+    const plan = idlePlans.get(key);
+    activity = plan?.activity || activity;
+    if (plan?.place === "lounge") {
+      target = officeLoungePosition(plan.loungeIndex, plan.memberIndex, plan.memberCount);
+    }
+  }
+
+  const walkFrom = previous.position || target;
+  const targetKey = `${target.place}:${Math.round(target.x)}:${Math.round(target.y)}:${session.status}`;
+  let walkUntil = Number(previous.walkUntil || 0);
+  if (session.status === "working" && previous.status && previous.status !== "working") {
+    if (previous.targetKey !== targetKey || walkUntil <= now) {
+      walkUntil = now + OFFICE_WALK_MS;
+    }
+  }
+
+  const walkingToDesk = session.status === "working" && walkUntil > now;
+  if (walkingToDesk) {
+    activity = "walk";
+    scheduleOfficeRender(walkUntil - now + 40);
+  }
+
+  officeBehaviorState.set(key, {
+    position: walkingToDesk ? walkFrom : target,
+    status: session.status,
+    targetKey,
+    walkUntil: walkingToDesk ? walkUntil : 0,
+  });
+
+  return {
+    activity,
+    target,
+    walkFrom,
+    walkingToDesk,
+  };
 }
 
 function officeTaskText(session) {
@@ -297,7 +440,16 @@ function renderOffice() {
 
   const machinesById = new Map(state.machines.map((machine) => [machine.machine_id, machine]));
   const sessionsByRuntime = new Map();
-  state.sessions.forEach((session) => {
+  const visibleSessions = state.sessions
+    .filter((session) => session.status !== "offline")
+    .sort((left, right) => {
+      const runtimeCompare = runtimeSortKey(left.runtime_type).localeCompare(runtimeSortKey(right.runtime_type));
+      if (runtimeCompare !== 0) {
+        return runtimeCompare;
+      }
+      return sessionKey(left).localeCompare(sessionKey(right));
+    });
+  visibleSessions.forEach((session) => {
     const runtimeType = session.runtime_type || "other";
     if (!sessionsByRuntime.has(runtimeType)) {
       sessionsByRuntime.set(runtimeType, []);
@@ -307,29 +459,29 @@ function renderOffice() {
 
   const activeRuntimeKeys = new Set();
   const activeDeskKeys = new Set();
+  const idlePlans = officeIdlePlans(sessionsByRuntime, Date.now());
+  const runtimeSessionIndexes = new Map();
   Array.from(sessionsByRuntime.entries())
     .sort(([left], [right]) => runtimeSortKey(left).localeCompare(runtimeSortKey(right)))
     .forEach(([runtimeType, sessions], runtimeIndex) => {
-      const visibleSessions = sessions.filter((session) => session.status !== "offline");
-      if (visibleSessions.length === 0) {
-        return;
-      }
-
       activeRuntimeKeys.add(runtimeType);
       const zone = ensureOfficeRuntimeNode(runtimeType);
-      updateOfficeRuntimeNode(zone, runtimeType, visibleSessions);
+      updateOfficeRuntimeNode(zone, runtimeType, sessions);
       zone.style.setProperty("--runtime-index", String(runtimeIndex));
-
-      visibleSessions.forEach((session, sessionIndex) => {
-        const deskKey = sessionKey(session);
-        activeDeskKeys.add(deskKey);
-        const desk = ensureOfficeDeskNode(deskKey);
-        updateOfficeDeskNode(desk, session, sessionIndex, machinesById.get(session.machine_id));
-        zone.querySelector(".office-desks").append(desk);
-      });
-
       officeView.append(zone);
     });
+
+  visibleSessions.forEach((session) => {
+    const runtimeType = session.runtime_type || "other";
+    const sessionIndex = runtimeSessionIndexes.get(runtimeType) || 0;
+    runtimeSessionIndexes.set(runtimeType, sessionIndex + 1);
+    const deskKey = sessionKey(session);
+    activeDeskKeys.add(deskKey);
+    const desk = ensureOfficeDeskNode(deskKey);
+    updateOfficeDeskNode(desk, session, sessionIndex, machinesById.get(session.machine_id), idlePlans);
+    officeView.append(desk);
+  });
+
   if (activeRuntimeKeys.size === 0 && !officeView.querySelector("[data-office-empty]")) {
     const empty = emptyNode("No active desks");
     empty.dataset.officeEmpty = "true";
@@ -485,7 +637,6 @@ function ensureOfficeRuntimeNode(runtimeType) {
       </div>
       <span data-field="runtime-mascot"></span>
     </header>
-    <div class="office-desks"></div>
   `;
   officeRuntimeNodes.set(runtimeType, node);
   return node;
@@ -527,19 +678,29 @@ function ensureOfficeDeskNode(deskKey) {
   return node;
 }
 
-function updateOfficeDeskNode(node, session, sessionIndex, machine) {
+function updateOfficeDeskNode(node, session, sessionIndex, machine, idlePlans) {
   const deskKey = sessionKey(session);
   const status = statusClass(session.status);
   const selected = deskKey === selectedSessionId ? "selected" : "";
   const runtimeClass = `runtime-${statusClass(session.runtime_type || "other")}`;
-  const activity = session.status === "working" ? "typing" : idleActivityForSession(session);
+  const behavior = officeBehaviorForSession(session, sessionIndex, idlePlans, Date.now());
+  const activity = behavior.activity;
   const activityClass = `activity-${activity}`;
-  const nextClassName = ["office-desk", runtimeClass, status, activityClass, selected].filter(Boolean).join(" ");
+  const placeClass = `office-place-${behavior.target.place}`;
+  const walkingClass = behavior.walkingToDesk ? "walking-to-desk" : "";
+  const nextClassName = ["office-desk", runtimeClass, status, activityClass, placeClass, walkingClass, selected]
+    .filter(Boolean)
+    .join(" ");
   if (node.className !== nextClassName) {
     node.className = nextClassName;
   }
   node.dataset.sessionKey = deskKey;
   node.style.setProperty("--desk-index", String(sessionIndex));
+  node.style.setProperty("--actor-x", `${behavior.target.x}%`);
+  node.style.setProperty("--actor-y", `${behavior.target.y}%`);
+  node.style.setProperty("--walk-from-x", `${behavior.walkFrom.x}%`);
+  node.style.setProperty("--walk-from-y", `${behavior.walkFrom.y}%`);
+  node.style.setProperty("--actor-z", String(Math.round(behavior.target.y * 10)));
 
   const person = node.querySelector(".agent-person");
   const mascotClass = mascotForRuntime(session.runtime_type);
@@ -573,6 +734,7 @@ function removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys) {
     if (!activeDeskKeys.has(deskKey)) {
       node.remove();
       officeDeskNodes.delete(deskKey);
+      officeBehaviorState.delete(deskKey);
     }
   }
   for (const [runtimeType, node] of officeRuntimeNodes) {
@@ -720,6 +882,12 @@ refreshButton.addEventListener("click", () => {
 viewButtons.forEach((button) => {
   button.addEventListener("click", () => setActiveView(button.dataset.viewTarget));
 });
+
+setInterval(() => {
+  if (activeView === "office") {
+    renderOffice();
+  }
+}, OFFICE_BEHAVIOR_SLOT_MS);
 
 setActiveView(activeView);
 fetchState().catch((error) => {
