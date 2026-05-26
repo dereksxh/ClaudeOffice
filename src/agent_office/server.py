@@ -93,8 +93,11 @@ def create_app(db_path: str | Path, api_token: str) -> FastAPI:
             )
         return state.model_dump(mode="json")
 
+    def state_message() -> dict[str, Any]:
+        return {"type": "state", "state": current_state()}
+
     async def broadcast_state() -> None:
-        await broadcaster.broadcast(current_state())
+        await broadcaster.broadcast(state_message())
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> HTMLResponse:
@@ -167,7 +170,7 @@ def create_app(db_path: str | Path, api_token: str) -> FastAPI:
     async def websocket_state(websocket: WebSocket) -> None:
         await broadcaster.connect(websocket)
         try:
-            await websocket.send_json(current_state())
+            await websocket.send_json(state_message())
             while True:
                 await websocket.receive_text()
         except WebSocketDisconnect:

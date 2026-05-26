@@ -47,6 +47,49 @@ def test_rejects_missing_token(tmp_path) -> None:
     assert response.status_code == 401
 
 
+def test_websocket_initial_state_message_is_wrapped(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+
+    with client.websocket_connect("/ws") as websocket:
+        message = websocket.receive_json()
+
+    assert message["type"] == "state"
+    assert "state" in message
+    assert message["state"]["sessions"] == []
+
+
+def test_websocket_broadcast_state_message_is_wrapped(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+
+    with client.websocket_connect("/ws") as websocket:
+        websocket.receive_json()
+
+        response = client.post(
+            "/api/events",
+            headers={"Authorization": "Bearer test-token"},
+            json={
+                "event_id": "evt-1",
+                "machine_id": "machine-a",
+                "runtime_type": RuntimeType.CODEX,
+                "session_id": "codex-1",
+                "event_type": EventType.SESSION_STARTED,
+                "timestamp": datetime(2026, 5, 26, 3, 0, tzinfo=UTC).isoformat(),
+                "payload": {
+                    "project_name": "repo",
+                    "capabilities": ["request_report", "continue"],
+                },
+            },
+        )
+        message = websocket.receive_json()
+
+    assert response.status_code == 202
+    assert message["type"] == "state"
+    assert "state" in message
+    assert message["state"]["sessions"][0]["session_id"] == "codex-1"
+
+
 def test_create_lease_and_complete_command(tmp_path) -> None:
     app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
     client = TestClient(app)
