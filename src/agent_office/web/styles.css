@@ -325,10 +325,27 @@ dd {
   padding: 18px;
 }
 
-.office-zone {
+.office-runtime-zone {
   display: grid;
   gap: 14px;
+  border: 1px solid rgba(209, 217, 226, 0.86);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 24px rgba(37, 50, 65, 0.08);
   min-width: 0;
+  padding: 14px;
+}
+
+.runtime-zone-codex {
+  background:
+    linear-gradient(180deg, rgba(255, 250, 240, 0.82), rgba(255, 255, 255, 0.72)),
+    rgba(255, 255, 255, 0.7);
+}
+
+.runtime-zone-hermes {
+  background:
+    linear-gradient(180deg, rgba(244, 249, 255, 0.9), rgba(255, 255, 255, 0.72)),
+    rgba(255, 255, 255, 0.7);
 }
 
 .office-zone-header {
@@ -347,6 +364,26 @@ dd {
 .office-zone-header small {
   color: #6b7785;
   font-size: 12px;
+}
+
+.runtime-mascot {
+  border: 1px solid #d6dde5;
+  border-radius: 999px;
+  color: #5d6a78;
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
+.runtime-mascot.mascot-cow {
+  border-color: rgba(145, 111, 73, 0.4);
+  color: #7a5b36;
+}
+
+.runtime-mascot.mascot-pony {
+  border-color: rgba(91, 129, 183, 0.38);
+  color: #4c6d9a;
 }
 
 .office-desks {
@@ -396,6 +433,14 @@ dd {
 .office-desk.working {
   animation: deskPulse 2200ms ease-in-out infinite;
   border-color: rgba(74, 151, 102, 0.54);
+}
+
+.office-desk.runtime-codex.working {
+  border-color: rgba(145, 111, 73, 0.58);
+}
+
+.office-desk.runtime-hermes.working {
+  border-color: rgba(91, 129, 183, 0.58);
 }
 
 .office-desk.waiting-permission,
@@ -558,6 +603,57 @@ dd {
   animation: agentWaiting 1200ms ease-in-out infinite;
 }
 
+.agent-person.activity-sleeping:not(.working):not(.waiting-permission):not(.waiting) {
+  animation: sleepingBreath 1800ms ease-in-out infinite;
+  transform: translate(-10px, 22px) rotate(-8deg);
+}
+
+.agent-person.activity-phone:not(.working):not(.waiting-permission):not(.waiting) {
+  animation: phoneTap 1100ms ease-in-out infinite;
+  transform: translate(-12px, 15px);
+}
+
+.agent-person.activity-chatting:not(.working):not(.waiting-permission):not(.waiting) {
+  animation: chattingBounce 1400ms ease-in-out infinite;
+  transform: translate(-8px, 12px);
+}
+
+.mascot-ear,
+.mascot-horn,
+.mascot-mane,
+.mascot-tail,
+.mascot-prop {
+  position: absolute;
+  display: block;
+}
+
+.mascot-ear {
+  top: 3px;
+  width: 10px;
+  height: 14px;
+  border-radius: 70% 70% 35% 35%;
+  background: #f0c8a2;
+}
+
+.mascot-ear.left {
+  left: 4px;
+  transform: rotate(-28deg);
+}
+
+.mascot-ear.right {
+  right: 4px;
+  transform: rotate(28deg);
+}
+
+.mascot-horn {
+  display: none;
+}
+
+.mascot-mane,
+.mascot-tail {
+  display: none;
+}
+
 .agent-head {
   position: absolute;
   top: 0;
@@ -580,8 +676,87 @@ dd {
   box-shadow: inset -5px -4px 0 rgba(33, 58, 84, 0.14);
 }
 
+.mascot-cow .agent-head {
+  background:
+    radial-gradient(circle at 35% 42%, #6f4f35 0 12%, transparent 13%),
+    #f5d5ad;
+}
+
+.mascot-cow .agent-body {
+  background:
+    radial-gradient(circle at 70% 26%, #5d4635 0 13%, transparent 14%),
+    radial-gradient(circle at 30% 64%, #5d4635 0 12%, transparent 13%),
+    #f2efe8;
+  border: 1px solid rgba(93, 70, 53, 0.26);
+}
+
+.mascot-cow .mascot-horn {
+  display: block;
+  top: -2px;
+  width: 7px;
+  height: 10px;
+  border-radius: 60% 60% 35% 35%;
+  background: #ead9ba;
+}
+
+.mascot-cow .mascot-horn.left {
+  left: 7px;
+  transform: rotate(-18deg);
+}
+
+.mascot-cow .mascot-horn.right {
+  right: 7px;
+  transform: rotate(18deg);
+}
+
+.mascot-pony .agent-head {
+  background: #f1c69f;
+}
+
+.mascot-pony .agent-body {
+  background: #d99ab4;
+}
+
+.mascot-pony .mascot-ear {
+  background: #f1c69f;
+  height: 16px;
+}
+
+.mascot-pony .mascot-mane {
+  display: block;
+  top: 1px;
+  left: 19px;
+  z-index: 2;
+  width: 9px;
+  height: 32px;
+  border-radius: 999px;
+  background: #7fa8d8;
+  transform: rotate(8deg);
+}
+
+.mascot-pony .mascot-tail {
+  display: block;
+  right: -8px;
+  bottom: 5px;
+  width: 18px;
+  height: 28px;
+  border-radius: 999px 999px 999px 12px;
+  background: #7fa8d8;
+  transform: rotate(-18deg);
+}
+
 .agent-person.working .agent-body {
   background: #4a9766;
+}
+
+.agent-person.working.mascot-cow .agent-body {
+  background:
+    radial-gradient(circle at 70% 26%, #5d4635 0 13%, transparent 14%),
+    #6da574;
+}
+
+.agent-person.working.mascot-pony .agent-body {
+  background: #6f99cb;
 }
 
 .agent-person.waiting-permission .agent-body,
@@ -600,6 +775,62 @@ dd {
   background: #bd8f31;
   content: "";
   transform: rotate(-28deg);
+}
+
+.mascot-prop {
+  z-index: 3;
+}
+
+.agent-person.activity-sleeping .mascot-prop {
+  top: -11px;
+  right: -14px;
+  color: #627080;
+  font-size: 10px;
+}
+
+.agent-person.activity-sleeping .mascot-prop::before {
+  content: "Z";
+}
+
+.agent-person.activity-sleeping .mascot-prop::after {
+  content: "z";
+  margin-left: 2px;
+  opacity: 0.68;
+}
+
+.agent-person.activity-phone .mascot-prop {
+  right: -9px;
+  bottom: 12px;
+  width: 10px;
+  height: 17px;
+  border: 2px solid #596875;
+  border-radius: 3px;
+  background: #111820;
+}
+
+.agent-person.activity-phone .mascot-prop::after {
+  position: absolute;
+  top: 3px;
+  left: 2px;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #8ec4ff;
+  box-shadow: 3px 4px 0 #8ec4ff;
+  content: "";
+}
+
+.agent-person.activity-chatting .mascot-prop {
+  top: -10px;
+  right: -19px;
+  min-width: 18px;
+  border-radius: 8px 8px 8px 2px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 50, 65, 0.18);
+  color: #6b7785;
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 5px;
 }
 
 .office-desk-copy {
@@ -654,6 +885,36 @@ dd {
   }
   50% {
     transform: translate(16px, -2px) rotate(-2deg);
+  }
+}
+
+@keyframes sleepingBreath {
+  0%,
+  100% {
+    transform: translate(-10px, 22px) rotate(-8deg) scale(1);
+  }
+  50% {
+    transform: translate(-10px, 21px) rotate(-8deg) scale(1.03);
+  }
+}
+
+@keyframes phoneTap {
+  0%,
+  100% {
+    transform: translate(-12px, 15px) rotate(0deg);
+  }
+  50% {
+    transform: translate(-11px, 15px) rotate(2deg);
+  }
+}
+
+@keyframes chattingBounce {
+  0%,
+  100% {
+    transform: translate(-8px, 12px);
+  }
+  50% {
+    transform: translate(-8px, 9px);
   }
 }
 

@@ -69,6 +69,33 @@ def test_web_app_keeps_office_nodes_stable_between_state_updates() -> None:
     assert "officeView.replaceChildren();" not in js
 
 
+def test_web_app_groups_office_by_runtime_and_assigns_mascots() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "sessionsByRuntime" in js
+    assert "ensureOfficeRuntimeNode" in js
+    assert "runtimeTypeLabel" in js
+    assert "mascotForRuntime" in js
+    assert "mascot-cow" in js
+    assert "mascot-pony" in js
+
+
+def test_web_app_assigns_stable_idle_activities() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "idleActivityForSession" in js
+    assert '"sleeping"' in js
+    assert '"phone"' in js
+    assert '"chatting"' in js
+    assert "activity-${activity}" in js
+
+
+def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert '.replaceAll("_", "-")' in js
+
+
 def test_web_styles_keep_dense_console_layout() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
@@ -82,8 +109,16 @@ def test_web_styles_include_animated_office_projection() -> None:
 
     assert ".office-floor" in css
     assert ".office-desk" in css
+    assert ".office-runtime-zone" in css
     assert ".desk-surface" in css
+    assert ".mascot-cow" in css
+    assert ".mascot-pony" in css
     assert ".agent-person.working" in css
+    assert ".agent-person.activity-sleeping" in css
+    assert ".agent-person.activity-phone" in css
+    assert ".agent-person.activity-chatting" in css
     assert ".agent-person.waiting-permission" in css
     assert "@keyframes deskPulse" in css
     assert "@keyframes typingDot" in css
+    assert "@keyframes sleepingBreath" in css
+    assert "@keyframes phoneTap" in css

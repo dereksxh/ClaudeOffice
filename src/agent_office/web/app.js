@@ -5,8 +5,10 @@ let state = { machines: [], sessions: [], agents: [], commands: [] };
 let selectedSessionId = null;
 let activeView = "console";
 let socket = null;
-const officeMachineNodes = new Map();
+const officeRuntimeNodes = new Map();
 const officeDeskNodes = new Map();
+const RUNTIME_ORDER = ["codex", "hermes", "claude_code"];
+const IDLE_ACTIVITIES = ["sleeping", "phone", "chatting"];
 
 const machineList = document.getElementById("machine-list");
 const sessionTable = document.getElementById("session-table");
@@ -58,11 +60,43 @@ function sessionKey(session) {
 }
 
 function statusClass(status) {
-  return String(status || "unknown").replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
+  return String(status || "unknown").replaceAll("_", "-").replace(/[^a-z0-9-]/gi, "-").toLowerCase();
 }
 
 function runtimeInitial(runtimeType) {
   return String(runtimeType || "A").slice(0, 1).toUpperCase();
+}
+
+function runtimeTypeLabel(runtimeType) {
+  const labels = {
+    codex: "Codex",
+    hermes: "Hermes",
+    claude_code: "Claude Code",
+  };
+  return labels[runtimeType] || String(runtimeType || "Other");
+}
+
+function mascotForRuntime(runtimeType) {
+  if (runtimeType === "codex") {
+    return "mascot-cow";
+  }
+  if (runtimeType === "hermes") {
+    return "mascot-pony";
+  }
+  return "mascot-helper";
+}
+
+function stableHash(value) {
+  let hash = 0;
+  for (const char of String(value || "")) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash;
+}
+
+function idleActivityForSession(session) {
+  const index = stableHash(sessionKey(session)) % IDLE_ACTIVITIES.length;
+  return IDLE_ACTIVITIES[index];
 }
 
 function formatTime(value) {
@@ -225,72 +259,74 @@ function renderOffice() {
     emptyOfficeNode.remove();
   }
 
-  const sessionsByMachine = new Map();
-  state.machines.forEach((machine) => {
-    sessionsByMachine.set(machine.machine_id, { machine, sessions: [] });
-  });
+  const machinesById = new Map(state.machines.map((machine) => [machine.machine_id, machine]));
+  const sessionsByRuntime = new Map();
   state.sessions.forEach((session) => {
-    if (!sessionsByMachine.has(session.machine_id)) {
-      sessionsByMachine.set(session.machine_id, {
-        machine: { machine_id: session.machine_id, hostname: session.machine_id, health: "unknown" },
-        sessions: [],
-      });
+    const runtimeType = session.runtime_type || "other";
+    if (!sessionsByRuntime.has(runtimeType)) {
+      sessionsByRuntime.set(runtimeType, []);
     }
-    sessionsByMachine.get(session.machine_id).sessions.push(session);
+    sessionsByRuntime.get(runtimeType).push(session);
   });
 
-  const activeMachineKeys = new Set();
+  const activeRuntimeKeys = new Set();
   const activeDeskKeys = new Set();
-  Array.from(sessionsByMachine.values())
-    .filter((group) => group.sessions.length > 0)
-    .forEach((group, machineIndex) => {
-      const machineKey = group.machine.machine_id;
-      activeMachineKeys.add(machineKey);
-      const zone = ensureOfficeMachineNode(machineKey);
-      updateOfficeMachineNode(zone, group.machine, group.sessions.length);
-      zone.style.setProperty("--machine-index", String(machineIndex));
+  Array.from(sessionsByRuntime.entries())
+    .sort(([left], [right]) => runtimeSortKey(left).localeCompare(runtimeSortKey(right)))
+    .forEach(([runtimeType, sessions], runtimeIndex) => {
+      activeRuntimeKeys.add(runtimeType);
+      const zone = ensureOfficeRuntimeNode(runtimeType);
+      updateOfficeRuntimeNode(zone, runtimeType, sessions);
+      zone.style.setProperty("--runtime-index", String(runtimeIndex));
 
-      group.sessions.forEach((session, sessionIndex) => {
+      sessions.forEach((session, sessionIndex) => {
         const deskKey = sessionKey(session);
         activeDeskKeys.add(deskKey);
         const desk = ensureOfficeDeskNode(deskKey);
-        updateOfficeDeskNode(desk, session, sessionIndex);
+        updateOfficeDeskNode(desk, session, sessionIndex, machinesById.get(session.machine_id));
         zone.querySelector(".office-desks").append(desk);
       });
 
       officeView.append(zone);
     });
-  removeStaleOfficeNodes(activeMachineKeys, activeDeskKeys);
+  removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys);
 }
 
-function ensureOfficeMachineNode(machineId) {
-  if (officeMachineNodes.has(machineId)) {
-    return officeMachineNodes.get(machineId);
+function runtimeSortKey(runtimeType) {
+  const order = RUNTIME_ORDER.indexOf(runtimeType);
+  return `${order === -1 ? 99 : order}:${runtimeType}`;
+}
+
+function ensureOfficeRuntimeNode(runtimeType) {
+  if (officeRuntimeNodes.has(runtimeType)) {
+    return officeRuntimeNodes.get(runtimeType);
   }
 
   const node = document.createElement("article");
-  node.className = "office-zone";
-  node.dataset.machineId = machineId;
+  node.className = `office-runtime-zone runtime-zone-${statusClass(runtimeType)}`;
+  node.dataset.runtimeType = runtimeType;
   node.innerHTML = `
     <header class="office-zone-header">
       <div>
-        <strong data-field="hostname"></strong>
-        <small data-field="machine-id"></small>
+        <strong data-field="runtime-name"></strong>
+        <small data-field="runtime-summary"></small>
       </div>
-      <span data-field="machine-health"></span>
+      <span data-field="runtime-mascot"></span>
     </header>
     <div class="office-desks"></div>
   `;
-  officeMachineNodes.set(machineId, node);
+  officeRuntimeNodes.set(runtimeType, node);
   return node;
 }
 
-function updateOfficeMachineNode(node, machine, sessionCount) {
-  node.querySelector('[data-field="hostname"]').textContent = machine.hostname || machine.machine_id;
-  node.querySelector('[data-field="machine-id"]').textContent = `${machine.machine_id} / ${sessionCount} desks`;
-  const health = node.querySelector('[data-field="machine-health"]');
-  health.className = `status ${statusClass(machine.health)}`;
-  health.textContent = machine.health || "unknown";
+function updateOfficeRuntimeNode(node, runtimeType, sessions) {
+  const workingCount = sessions.filter((session) => session.status === "working").length;
+  node.querySelector('[data-field="runtime-name"]').textContent = `${runtimeTypeLabel(runtimeType)} Area`;
+  node.querySelector('[data-field="runtime-summary"]').textContent =
+    `${sessions.length} desks / ${workingCount} working`;
+  const mascot = node.querySelector('[data-field="runtime-mascot"]');
+  mascot.className = `runtime-mascot ${mascotForRuntime(runtimeType)}`;
+  mascot.textContent = runtimeType === "codex" ? "cow" : runtimeType === "hermes" ? "pony" : "agent";
 }
 
 function ensureOfficeDeskNode(deskKey) {
@@ -303,8 +339,15 @@ function ensureOfficeDeskNode(deskKey) {
   node.innerHTML = `
     <span class="desk-scene">
       <span class="agent-person" aria-hidden="true">
+        <span class="mascot-ear left"></span>
+        <span class="mascot-ear right"></span>
+        <span class="mascot-horn left"></span>
+        <span class="mascot-horn right"></span>
+        <span class="mascot-mane"></span>
+        <span class="mascot-tail"></span>
         <span class="agent-head"></span>
         <span class="agent-body"></span>
+        <span class="mascot-prop" data-field="activity-prop"></span>
       </span>
       <span class="desk-surface" aria-hidden="true">
         <span class="desk-monitor"></span>
@@ -330,11 +373,14 @@ function ensureOfficeDeskNode(deskKey) {
   return node;
 }
 
-function updateOfficeDeskNode(node, session, sessionIndex) {
+function updateOfficeDeskNode(node, session, sessionIndex, machine) {
   const deskKey = sessionKey(session);
   const status = statusClass(session.status);
   const selected = deskKey === selectedSessionId ? "selected" : "";
-  const nextClassName = ["office-desk", status, selected].filter(Boolean).join(" ");
+  const runtimeClass = `runtime-${statusClass(session.runtime_type || "other")}`;
+  const activity = session.status === "working" ? "typing" : idleActivityForSession(session);
+  const activityClass = `activity-${activity}`;
+  const nextClassName = ["office-desk", runtimeClass, status, activityClass, selected].filter(Boolean).join(" ");
   if (node.className !== nextClassName) {
     node.className = nextClassName;
   }
@@ -342,26 +388,28 @@ function updateOfficeDeskNode(node, session, sessionIndex) {
   node.style.setProperty("--desk-index", String(sessionIndex));
 
   const person = node.querySelector(".agent-person");
-  const personClassName = ["agent-person", status].join(" ");
+  const mascotClass = mascotForRuntime(session.runtime_type);
+  const personClassName = ["agent-person", mascotClass, status, activityClass].join(" ");
   if (person.className !== personClassName) {
     person.className = personClassName;
   }
+  node.querySelector('[data-field="activity-prop"]').textContent = activity === "chatting" ? "..." : "";
   node.querySelector('[data-field="project"]').textContent = session.project_name || session.session_id;
   node.querySelector('[data-field="runtime"]').textContent =
-    `${runtimeInitial(session.runtime_type)} / ${session.runtime_type || "runtime"} / ${session.status || "unknown"}`;
+    `${runtimeInitial(session.runtime_type)} / ${machine?.hostname || session.machine_id} / ${session.status || "unknown"}`;
 }
 
-function removeStaleOfficeNodes(activeMachineKeys, activeDeskKeys) {
+function removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys) {
   for (const [deskKey, node] of officeDeskNodes) {
     if (!activeDeskKeys.has(deskKey)) {
       node.remove();
       officeDeskNodes.delete(deskKey);
     }
   }
-  for (const [machineKey, node] of officeMachineNodes) {
-    if (!activeMachineKeys.has(machineKey)) {
+  for (const [runtimeType, node] of officeRuntimeNodes) {
+    if (!activeRuntimeKeys.has(runtimeType)) {
       node.remove();
-      officeMachineNodes.delete(machineKey);
+      officeRuntimeNodes.delete(runtimeType);
     }
   }
 }
