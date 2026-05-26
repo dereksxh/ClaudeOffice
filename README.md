@@ -13,6 +13,7 @@ web UI -> command queue -> collector -> runtime adapter -> command result
 
 - central event ingestion and projected state
 - machine collector with runtime adapters
+- local Codex and Claude Code token usage snapshots
 - safe control commands: `append_prompt`, `request_report`, `continue`
 - dense console UI and simple Office/Building projection
 - shared token auth for trusted internal use
@@ -49,6 +50,7 @@ For the current machine's Codex CLI sessions and Hermes gateways:
 ```bash
 agent-office-collector --central-url http://127.0.0.1:8080 \
   --codex-sessions-dir ~/.codex/sessions \
+  --claude-projects-dir ~/.claude/projects \
   --hermes-home ~/.hermes
 ```
 
@@ -62,7 +64,7 @@ agent-office-collector --central-url http://127.0.0.1:8080 \
   --command-outbox-dir ~/.agent-office/commands
 ```
 
-Codex and Claude Code adapters read JSONL hook logs, Hermes reads a JSON snapshot file, and all configured runtimes write accepted control commands to runtime-specific JSONL outboxes. Runtime-specific signals are normalized into the same event schema.
+Codex and Claude Code adapters read JSONL hook logs, Hermes reads a JSON snapshot file, and all configured runtimes write accepted control commands to runtime-specific JSONL outboxes. Runtime-specific signals are normalized into the same event schema. The local collector can also read Codex session token counts and Claude Code project usage records to show an approximate local token total in the Office view.
 
 For an end-to-end smoke test without real runtime files:
 

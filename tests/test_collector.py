@@ -10,6 +10,7 @@ from agent_office.collector.adapters.claude_code import ClaudeHookLogAdapter
 from agent_office.collector.adapters.codex import CodexHookLogAdapter, CodexSessionDirectoryAdapter
 from agent_office.collector.adapters.fake import FakeAdapter
 from agent_office.collector.adapters.hermes import HermesGatewayStateAdapter, HermesSnapshotFileAdapter
+from agent_office.collector.adapters.usage import ClaudeCodeUsageAdapter
 from agent_office.collector.client import CollectorClient
 from agent_office.collector import runner
 from agent_office.collector.runner import build_adapters, collect_once
@@ -203,6 +204,7 @@ def test_runner_builds_configured_runtime_adapters_and_fake_is_opt_in(tmp_path) 
         claude_hook_log=str(claude_log),
         hermes_snapshot=str(hermes_snapshot),
         hermes_home=None,
+        claude_projects_dir=None,
         command_outbox_dir=str(outbox_dir),
         enable_fake=False,
     )
@@ -232,6 +234,7 @@ def test_runner_builds_local_discovery_adapters(tmp_path) -> None:
         claude_hook_log=None,
         hermes_snapshot=None,
         hermes_home=str(hermes_home),
+        claude_projects_dir=None,
         command_outbox_dir=None,
         enable_fake=False,
     )
@@ -242,6 +245,25 @@ def test_runner_builds_local_discovery_adapters(tmp_path) -> None:
         CodexSessionDirectoryAdapter,
         HermesGatewayStateAdapter,
     ]
+
+
+def test_runner_builds_claude_usage_adapter(tmp_path) -> None:
+    args = Namespace(
+        machine_id="machine-a",
+        hostname="worker-a",
+        codex_hook_log=None,
+        codex_sessions_dir=None,
+        claude_hook_log=None,
+        hermes_snapshot=None,
+        hermes_home=None,
+        claude_projects_dir=str(tmp_path / "claude-projects"),
+        command_outbox_dir=None,
+        enable_fake=False,
+    )
+
+    adapters = build_adapters(args)
+
+    assert [type(adapter) for adapter in adapters] == [ClaudeCodeUsageAdapter]
 
 
 def test_codex_hook_log_adapter_maps_events_and_writes_command_outbox(tmp_path) -> None:
@@ -346,7 +368,7 @@ def test_codex_session_directory_adapter_maps_recent_session_files(tmp_path) -> 
 
     events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 3, tzinfo=UTC))
 
-    assert len(events) == 1
+    assert len(events) == 2
     assert events[0].runtime_type == RuntimeType.CODEX
     assert events[0].session_id == "codex-session-1"
     assert events[0].payload["project_name"] == "repo"
@@ -354,10 +376,112 @@ def test_codex_session_directory_adapter_maps_recent_session_files(tmp_path) -> 
     assert events[0].payload["progress_summary"] == "Inspecting session files"
     assert events[0].payload["status"] == "working"
     assert events[0].timestamp == datetime(2026, 5, 26, 3, 3, tzinfo=UTC)
+    assert events[1].event_type == EventType.USAGE_SNAPSHOT
+    assert events[1].payload["total_tokens"] == 0
 
     next_events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 4, tzinfo=UTC))
 
     assert next_events[0].event_id != events[0].event_id
+
+
+def test_codex_session_directory_adapter_emits_token_usage_snapshot(tmp_path) -> None:
+    sessions_dir = tmp_path / "sessions"
+    session_file = sessions_dir / "2026" / "05" / "26" / "rollout.jsonl"
+    session_file.parent.mkdir(parents=True)
+    session_file.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": "2026-05-26T03:00:00Z",
+                        "type": "event_msg",
+                        "payload": {
+                            "type": "token_count",
+                            "info": {
+                                "total_token_usage": {
+                                    "input_tokens": 10,
+                                    "cached_input_tokens": 2,
+                                    "output_tokens": 3,
+                                    "reasoning_output_tokens": 1,
+                                    "total_tokens": 13,
+                                }
+                            },
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-05-26T03:01:00Z",
+                        "type": "event_msg",
+                        "payload": {
+                            "type": "token_count",
+                            "info": {
+                                "total_token_usage": {
+                                    "input_tokens": 20,
+                                    "cached_input_tokens": 4,
+                                    "output_tokens": 6,
+                                    "reasoning_output_tokens": 2,
+                                    "total_tokens": 26,
+                                }
+                            },
+                        },
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    adapter = CodexSessionDirectoryAdapter(machine_id="machine-a", sessions_dir=sessions_dir, max_sessions=5)
+
+    events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 2, tzinfo=UTC))
+    usage = events[-1]
+
+    assert usage.event_type == EventType.USAGE_SNAPSHOT
+    assert usage.payload["input_tokens"] == 20
+    assert usage.payload["cached_input_tokens"] == 4
+    assert usage.payload["output_tokens"] == 6
+    assert usage.payload["reasoning_output_tokens"] == 2
+    assert usage.payload["total_tokens"] == 26
+    assert usage.payload["request_count"] == 2
+    assert usage.payload["session_count"] == 1
+
+
+def test_claude_usage_adapter_deduplicates_message_usage(tmp_path) -> None:
+    projects_dir = tmp_path / "projects"
+    project_dir = projects_dir / "repo"
+    project_dir.mkdir(parents=True)
+    record = {
+        "timestamp": "2026-05-26T03:00:00Z",
+        "requestId": "req-1",
+        "message": {
+            "id": "msg-1",
+            "model": "claude-sonnet-4-6",
+            "usage": {
+                "input_tokens": 10,
+                "cache_creation_input_tokens": 20,
+                "cache_read_input_tokens": 30,
+                "output_tokens": 40,
+            },
+        },
+    }
+    (project_dir / "session.jsonl").write_text(
+        json.dumps(record) + "\n" + json.dumps(record) + "\n",
+        encoding="utf-8",
+    )
+    adapter = ClaudeCodeUsageAdapter(machine_id="machine-a", projects_dir=projects_dir)
+
+    events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 1, tzinfo=UTC))
+
+    assert len(events) == 1
+    assert events[0].event_type == EventType.USAGE_SNAPSHOT
+    assert events[0].runtime_type == RuntimeType.CLAUDE_CODE
+    assert events[0].payload["input_tokens"] == 10
+    assert events[0].payload["cache_creation_input_tokens"] == 20
+    assert events[0].payload["cache_read_input_tokens"] == 30
+    assert events[0].payload["output_tokens"] == 40
+    assert events[0].payload["total_tokens"] == 100
+    assert events[0].payload["request_count"] == 1
 
 
 def test_hermes_snapshot_file_adapter_maps_snapshot_file(tmp_path) -> None:

@@ -4,3 +4,4 @@
 __pycache__/
 *.py[cod]
 obsidian-staging/
+agent-office.sqlite

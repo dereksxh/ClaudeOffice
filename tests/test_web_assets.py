@@ -14,6 +14,7 @@ def test_web_app_contains_console_regions() -> None:
     assert 'data-view-target="office"' in html
     assert 'id="office-screen"' in html
     assert 'id="office-view"' in html
+    assert 'id="token-usage-summary"' in html
 
 
 def test_web_app_gates_actions_by_capability() -> None:
@@ -96,12 +97,22 @@ def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
     assert '.replaceAll("_", "-")' in js
 
 
+def test_web_app_renders_token_usage_summary() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "token_usage: nextState.token_usage || []" in js
+    assert "renderTokenUsage" in js
+    assert "formatCompactNumber" in js
+    assert "tokenUsageSummary" in js
+
+
 def test_web_styles_keep_dense_console_layout() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
     assert ".app-shell" in css
     assert ".session-table" in css
     assert ".office-grid" in css
+    assert ".usage-panel" in css
 
 
 def test_web_styles_include_animated_office_projection() -> None:

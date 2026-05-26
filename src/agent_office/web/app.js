@@ -1,7 +1,7 @@
 const TOKEN_KEY = "agentOfficeToken";
 const authToken = resolveToken();
 
-let state = { machines: [], sessions: [], agents: [], commands: [] };
+let state = { machines: [], sessions: [], agents: [], token_usage: [], commands: [] };
 let selectedSessionId = null;
 let activeView = "console";
 let socket = null;
@@ -18,6 +18,7 @@ const refreshButton = document.getElementById("refresh-button");
 const stateSummary = document.getElementById("state-summary");
 const connectionStatus = document.getElementById("connection-status");
 const activeViewTitle = document.getElementById("active-view-title");
+const tokenUsageSummary = document.getElementById("token-usage-summary");
 const viewButtons = Array.from(document.querySelectorAll("[data-view-target]"));
 const viewScreens = Array.from(document.querySelectorAll(".view-screen"));
 
@@ -120,6 +121,7 @@ function setState(nextState) {
     machines: nextState.machines || [],
     sessions: nextState.sessions || [],
     agents: nextState.agents || [],
+    token_usage: nextState.token_usage || [],
     commands: nextState.commands || [],
   };
 
@@ -290,6 +292,68 @@ function renderOffice() {
       officeView.append(zone);
     });
   removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys);
+}
+
+function formatCompactNumber(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) {
+    return "0";
+  }
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: number >= 1000 ? 1 : 0,
+    notation: number >= 10000 ? "compact" : "standard",
+  }).format(number);
+}
+
+function renderTokenUsage() {
+  if (!tokenUsageSummary) {
+    return;
+  }
+
+  tokenUsageSummary.replaceChildren();
+  const usageItems = [...(state.token_usage || [])].sort((left, right) => {
+    const runtimeCompare = runtimeSortKey(left.runtime_type).localeCompare(runtimeSortKey(right.runtime_type));
+    if (runtimeCompare !== 0) {
+      return runtimeCompare;
+    }
+    return String(left.machine_id || "").localeCompare(String(right.machine_id || ""));
+  });
+  const totalTokens = usageItems.reduce((sum, item) => sum + Number(item.total_tokens || 0), 0);
+
+  const header = document.createElement("div");
+  header.className = "usage-total";
+  header.innerHTML = `
+    <span>Token usage</span>
+    <strong>${formatCompactNumber(totalTokens)}</strong>
+  `;
+  tokenUsageSummary.append(header);
+
+  if (usageItems.length === 0) {
+    tokenUsageSummary.append(emptyNode("No token usage"));
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "usage-breakdown";
+  usageItems.forEach((usage) => {
+    const item = document.createElement("div");
+    item.className = `usage-item runtime-${statusClass(usage.runtime_type || "other")}`;
+    const cachedTokens =
+      Number(usage.cached_input_tokens || 0) ||
+      Number(usage.cache_creation_input_tokens || 0) + Number(usage.cache_read_input_tokens || 0);
+    const inputTokens = Number(usage.input_tokens || 0) + cachedTokens;
+    item.innerHTML = `
+      <span>
+        <strong>${escapeHtml(runtimeTypeLabel(usage.runtime_type))}</strong>
+        <small>${escapeHtml(usage.machine_id || "-")} / ${escapeHtml(usage.scope || "local_logs")}</small>
+      </span>
+      <span>${formatCompactNumber(usage.total_tokens)} total</span>
+      <span>${formatCompactNumber(inputTokens)} in</span>
+      <span>${formatCompactNumber(usage.output_tokens)} out</span>
+    `;
+    list.append(item);
+  });
+  tokenUsageSummary.append(list);
 }
 
 function runtimeSortKey(runtimeType) {
@@ -501,6 +565,7 @@ function render() {
   renderMachines();
   renderSessions();
   renderDetail();
+  renderTokenUsage();
   renderOffice();
   stateSummary.textContent = `${state.machines.length} machines / ${state.sessions.length} sessions / ${state.commands.length} commands`;
 }

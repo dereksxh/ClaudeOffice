@@ -13,6 +13,7 @@ from agent_office.models import (
     RuntimeSession,
     RuntimeType,
     SessionStatus,
+    TokenUsageSnapshot,
 )
 
 
@@ -77,6 +78,27 @@ def test_machine_health_defaults_to_unknown() -> None:
 
     assert machine.health == "unknown"
     assert machine.labels == {}
+
+
+def test_token_usage_snapshot_tracks_runtime_totals() -> None:
+    usage = TokenUsageSnapshot(
+        machine_id="machine-a",
+        runtime_type=RuntimeType.CODEX,
+        scope="local_logs",
+        label="Codex local usage",
+        total_tokens=1234,
+        input_tokens=900,
+        cached_input_tokens=200,
+        output_tokens=100,
+        reasoning_output_tokens=34,
+        request_count=5,
+        session_count=2,
+        updated_at=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+        source_ref="codex:sessions",
+    )
+
+    assert usage.total_tokens == 1234
+    assert usage.runtime_type == RuntimeType.CODEX
 
 
 def test_rejects_unsupported_runtime_type() -> None:

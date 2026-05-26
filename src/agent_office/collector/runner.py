@@ -12,6 +12,7 @@ from agent_office.collector.adapters.claude_code import ClaudeHookLogAdapter
 from agent_office.collector.adapters.codex import CodexHookLogAdapter, CodexSessionDirectoryAdapter
 from agent_office.collector.adapters.fake import FakeAdapter
 from agent_office.collector.adapters.hermes import HermesGatewayStateAdapter, HermesSnapshotFileAdapter
+from agent_office.collector.adapters.usage import ClaudeCodeUsageAdapter
 from agent_office.collector.client import CollectorClient
 from agent_office.models import CommandStatus, ControlCommand, EventRecord, EventType
 
@@ -50,6 +51,13 @@ def build_adapters(args: argparse.Namespace) -> list[RuntimeAdapter]:
                 machine_id=args.machine_id,
                 hook_log_path=args.claude_hook_log,
                 command_outbox_path=_command_outbox_path(args.command_outbox_dir, "claude-code"),
+            )
+        )
+    if args.claude_projects_dir:
+        adapters.append(
+            ClaudeCodeUsageAdapter(
+                machine_id=args.machine_id,
+                projects_dir=args.claude_projects_dir,
             )
         )
     if args.hermes_snapshot:
@@ -140,6 +148,7 @@ def main() -> None:
     parser.add_argument("--codex-hook-log", default=os.environ.get("AGENT_OFFICE_CODEX_HOOK_LOG"))
     parser.add_argument("--codex-sessions-dir", default=os.environ.get("AGENT_OFFICE_CODEX_SESSIONS_DIR"))
     parser.add_argument("--claude-hook-log", default=os.environ.get("AGENT_OFFICE_CLAUDE_HOOK_LOG"))
+    parser.add_argument("--claude-projects-dir", default=os.environ.get("AGENT_OFFICE_CLAUDE_PROJECTS_DIR"))
     parser.add_argument("--hermes-snapshot", default=os.environ.get("AGENT_OFFICE_HERMES_SNAPSHOT"))
     parser.add_argument("--hermes-home", default=os.environ.get("AGENT_OFFICE_HERMES_HOME"))
     parser.add_argument("--command-outbox-dir", default=os.environ.get("AGENT_OFFICE_COMMAND_OUTBOX_DIR"))

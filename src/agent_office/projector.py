@@ -13,6 +13,7 @@ from agent_office.models import (
     RuntimeSession,
     RuntimeType,
     SessionStatus,
+    TokenUsageSnapshot,
 )
 
 
@@ -140,6 +141,36 @@ def _update_agent_from_session(
     return agent.model_copy(update=update)
 
 
+def _int_payload(payload: dict[str, object], field: str) -> int:
+    value = payload.get(field)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return 0
+
+
+def _usage_snapshot_from_event(event: EventRecord) -> TokenUsageSnapshot:
+    payload = event.payload
+    return TokenUsageSnapshot(
+        machine_id=event.machine_id,
+        runtime_type=event.runtime_type,
+        scope=str(payload.get("scope") or "local_logs"),
+        label=str(payload.get("label") or f"{event.runtime_type.value} usage"),
+        total_tokens=_int_payload(payload, "total_tokens"),
+        input_tokens=_int_payload(payload, "input_tokens"),
+        cached_input_tokens=_int_payload(payload, "cached_input_tokens"),
+        cache_creation_input_tokens=_int_payload(payload, "cache_creation_input_tokens"),
+        cache_read_input_tokens=_int_payload(payload, "cache_read_input_tokens"),
+        output_tokens=_int_payload(payload, "output_tokens"),
+        reasoning_output_tokens=_int_payload(payload, "reasoning_output_tokens"),
+        request_count=_int_payload(payload, "request_count"),
+        session_count=_int_payload(payload, "session_count"),
+        updated_at=event.timestamp,
+        source_ref=event.source_ref,
+    )
+
+
 def project_state(
     events: list[EventRecord],
     commands: list[ControlCommand],
@@ -150,6 +181,7 @@ def project_state(
     machines: dict[str, Machine] = {}
     sessions: dict[tuple[str, str], RuntimeSession] = {}
     agents: dict[tuple[str, str, str], AgentInstance] = {}
+    token_usage: dict[tuple[str, RuntimeType, str], TokenUsageSnapshot] = {}
 
     for event in sorted(events, key=lambda item: (item.timestamp, item.event_id)):
         if event.event_type == EventType.MACHINE_HEARTBEAT:
@@ -162,6 +194,10 @@ def project_state(
                 health="online",
                 runtime_inventory=_runtime_inventory(event.payload.get("runtime_inventory")),
             )
+        elif event.event_type == EventType.USAGE_SNAPSHOT:
+            _ensure_machine(machines, event)
+            usage = _usage_snapshot_from_event(event)
+            token_usage[(usage.machine_id, usage.runtime_type, usage.scope)] = usage
         else:
             _ensure_machine(machines, event)
 
@@ -199,5 +235,9 @@ def project_state(
         machines=sorted(machines.values(), key=lambda item: item.machine_id),
         sessions=sorted(sessions.values(), key=lambda item: (item.machine_id, item.session_id)),
         agents=sorted(agents.values(), key=lambda item: (item.machine_id, item.session_id, item.agent_id)),
+        token_usage=sorted(
+            token_usage.values(),
+            key=lambda item: (item.machine_id, item.runtime_type.value, item.scope),
+        ),
         commands=sorted(commands, key=lambda item: (item.created_at, item.command_id)),
     )

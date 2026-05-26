@@ -111,6 +111,56 @@ def test_projector_includes_commands_in_state() -> None:
     assert state.commands == [command]
 
 
+def test_projector_includes_latest_token_usage_snapshot() -> None:
+    events = [
+        EventRecord(
+            event_id="usage-old",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            event_type=EventType.USAGE_SNAPSHOT,
+            timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+            payload={
+                "scope": "local_logs",
+                "label": "Codex local usage",
+                "total_tokens": 100,
+                "input_tokens": 60,
+                "cached_input_tokens": 20,
+                "output_tokens": 10,
+                "reasoning_output_tokens": 10,
+                "request_count": 2,
+                "session_count": 1,
+            },
+            source_ref="codex:sessions",
+        ),
+        EventRecord(
+            event_id="usage-new",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            event_type=EventType.USAGE_SNAPSHOT,
+            timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+            payload={
+                "scope": "local_logs",
+                "label": "Codex local usage",
+                "total_tokens": 250,
+                "input_tokens": 150,
+                "cached_input_tokens": 50,
+                "output_tokens": 25,
+                "reasoning_output_tokens": 25,
+                "request_count": 3,
+                "session_count": 2,
+            },
+            source_ref="codex:sessions",
+        ),
+    ]
+
+    state = project_state(events, [], now=datetime(2026, 5, 26, 3, 2, tzinfo=UTC))
+
+    assert len(state.token_usage) == 1
+    assert state.token_usage[0].runtime_type == RuntimeType.CODEX
+    assert state.token_usage[0].total_tokens == 250
+    assert state.token_usage[0].updated_at == datetime(2026, 5, 26, 3, 1, tzinfo=UTC)
+
+
 def test_session_updated_refreshes_metadata_and_capabilities() -> None:
     events = [
         EventRecord(

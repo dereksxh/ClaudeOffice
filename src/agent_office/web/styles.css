@@ -305,6 +305,77 @@ dd {
   padding: 7px;
 }
 
+.usage-panel {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.28fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+  min-width: 0;
+}
+
+.usage-total,
+.usage-breakdown {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.usage-total {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-height: 78px;
+  padding: 12px;
+}
+
+.usage-total span,
+.usage-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.usage-total strong {
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.usage-breakdown {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.usage-item {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) repeat(3, minmax(74px, auto));
+  align-items: center;
+  gap: 10px;
+  background: #151b22;
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.usage-item > span:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.usage-item strong,
+.usage-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-item strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
 .office-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -932,7 +1003,8 @@ dd {
 
 @media (max-width: 900px) {
   .app-shell,
-  .console-grid {
+  .console-grid,
+  .usage-panel {
     grid-template-columns: 1fr;
   }
 
@@ -960,5 +1032,9 @@ dd {
 
   .office-grid {
     grid-template-columns: 1fr;
+  }
+
+  .usage-item {
+    grid-template-columns: 1fr 1fr;
   }
 }

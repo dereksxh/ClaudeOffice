@@ -36,6 +36,7 @@ class Capability(StrEnum):
 
 class EventType(StrEnum):
     MACHINE_HEARTBEAT = "machine_heartbeat"
+    USAGE_SNAPSHOT = "usage_snapshot"
     SESSION_STARTED = "session_started"
     SESSION_UPDATED = "session_updated"
     SESSION_STOPPED = "session_stopped"
@@ -102,6 +103,24 @@ class AgentInstance(BaseModel):
     capabilities: list[Capability] = Field(default_factory=list)
 
 
+class TokenUsageSnapshot(BaseModel):
+    machine_id: str
+    runtime_type: RuntimeType
+    scope: str
+    label: str
+    total_tokens: int = 0
+    input_tokens: int = 0
+    cached_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    output_tokens: int = 0
+    reasoning_output_tokens: int = 0
+    request_count: int = 0
+    session_count: int = 0
+    updated_at: datetime
+    source_ref: str | None = None
+
+
 class EventRecord(BaseModel):
     event_id: str
     machine_id: str
@@ -134,4 +153,5 @@ class ProjectedState(BaseModel):
     machines: list[Machine] = Field(default_factory=list)
     sessions: list[RuntimeSession] = Field(default_factory=list)
     agents: list[AgentInstance] = Field(default_factory=list)
+    token_usage: list[TokenUsageSnapshot] = Field(default_factory=list)
     commands: list[ControlCommand] = Field(default_factory=list)
