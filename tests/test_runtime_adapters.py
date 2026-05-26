@@ -27,6 +27,69 @@ def test_codex_user_prompt_maps_to_session_started_or_updated_event() -> None:
     assert Capability.REQUEST_REPORT.value in event.payload["capabilities"]
 
 
+def test_claude_pascal_case_user_prompt_maps_to_user_prompt_event() -> None:
+    event = map_claude_hook_event(
+        machine_id="machine-a",
+        hook_event_name="UserPromptSubmit",
+        payload={
+            "session_id": "claude-1",
+            "cwd": "/repo",
+            "prompt": "Build Agent Office",
+        },
+        timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
+
+    assert event.runtime_type == RuntimeType.CLAUDE_CODE
+    assert event.event_type == EventType.USER_PROMPT
+    assert event.session_id == "claude-1"
+    assert event.payload["current_task"] == "Build Agent Office"
+    assert Capability.REQUEST_REPORT.value in event.payload["capabilities"]
+
+
+def test_claude_repeated_user_prompts_have_distinct_event_ids() -> None:
+    first = map_claude_hook_event(
+        machine_id="machine-a",
+        hook_event_name="UserPromptSubmit",
+        payload={"session_id": "claude-1", "prompt": "First task"},
+        timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
+    second = map_claude_hook_event(
+        machine_id="machine-a",
+        hook_event_name="UserPromptSubmit",
+        payload={"session_id": "claude-1", "prompt": "Second task"},
+        timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+    )
+
+    assert first.event_id != second.event_id
+
+
+def test_codex_tool_use_id_disambiguates_tool_events() -> None:
+    first = map_codex_hook_event(
+        machine_id="machine-a",
+        hook_event_name="PreToolUse",
+        payload={
+            "session_id": "codex-1",
+            "turn_id": "turn-1",
+            "tool_use_id": "tool-1",
+            "tool_name": "Bash",
+        },
+        timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
+    second = map_codex_hook_event(
+        machine_id="machine-a",
+        hook_event_name="PreToolUse",
+        payload={
+            "session_id": "codex-1",
+            "turn_id": "turn-1",
+            "tool_use_id": "tool-2",
+            "tool_name": "Bash",
+        },
+        timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+    )
+
+    assert first.event_id != second.event_id
+
+
 def test_claude_task_tool_maps_to_agent_started_event() -> None:
     event = map_claude_hook_event(
         machine_id="machine-a",

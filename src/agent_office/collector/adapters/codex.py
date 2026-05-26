@@ -16,7 +16,8 @@ CODEX_CAPABILITIES = [
 
 
 def _event_id(machine_id: str, session_id: str, hook_event_name: str, payload: dict[str, Any]) -> str:
-    raw = f"{machine_id}:{session_id}:{hook_event_name}:{payload.get('turn_id')}:{payload.get('tool_call_id')}:{payload.get('prompt')}"
+    tool_id = payload.get("tool_use_id") or payload.get("tool_call_id")
+    raw = f"{machine_id}:{session_id}:{hook_event_name}:{payload.get('turn_id')}:{tool_id}:{payload.get('prompt')}"
     return "codex-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 

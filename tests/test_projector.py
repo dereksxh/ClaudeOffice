@@ -161,6 +161,79 @@ def test_session_updated_refreshes_metadata_and_capabilities() -> None:
     assert session.source_ref == "hook:update"
 
 
+def test_projector_updates_task_from_user_prompt_event() -> None:
+    events = [
+        EventRecord(
+            event_id="evt-session-started",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            event_type=EventType.SESSION_STARTED,
+            timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+            payload={
+                "current_task": "Old task",
+                "progress_summary": "Old progress",
+            },
+        ),
+        EventRecord(
+            event_id="evt-user-prompt",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            event_type=EventType.USER_PROMPT,
+            timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+            payload={
+                "current_task": "Build Agent Office",
+                "progress_summary": "User prompt submitted",
+            },
+        ),
+    ]
+
+    state = project_state(events, [], now=datetime(2026, 5, 26, 3, 2, tzinfo=UTC))
+
+    assert state.sessions[0].current_task == "Build Agent Office"
+    assert state.sessions[0].progress_summary == "User prompt submitted"
+
+
+def test_projector_marks_tool_finished_progress() -> None:
+    events = [
+        EventRecord(
+            event_id="evt-session-started",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            event_type=EventType.SESSION_STARTED,
+            timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+            payload={"project_name": "repo"},
+        ),
+        EventRecord(
+            event_id="evt-tool-started",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            agent_id="main",
+            event_type=EventType.TOOL_STARTED,
+            timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+            payload={"tool_name": "Bash"},
+        ),
+        EventRecord(
+            event_id="evt-tool-finished",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            agent_id="main",
+            event_type=EventType.TOOL_FINISHED,
+            timestamp=datetime(2026, 5, 26, 3, 2, tzinfo=UTC),
+            payload={"tool_name": "Bash"},
+        ),
+    ]
+
+    state = project_state(events, [], now=datetime(2026, 5, 26, 3, 3, tzinfo=UTC))
+
+    assert state.sessions[0].status == SessionStatus.WORKING
+    assert state.sessions[0].progress_summary == "Finished tool: Bash"
+
+
 def test_agent_stopped_does_not_complete_parent_session() -> None:
     events = [
         EventRecord(

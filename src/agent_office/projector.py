@@ -85,7 +85,7 @@ def _update_session_from_event(session: RuntimeSession, event: EventRecord) -> R
     payload = event.payload
     update: dict[str, object] = {"last_event_at": event.timestamp}
 
-    if event.event_type in (EventType.SESSION_STARTED, EventType.SESSION_UPDATED):
+    if event.event_type in (EventType.SESSION_STARTED, EventType.SESSION_UPDATED, EventType.USER_PROMPT):
         if event.event_type == EventType.SESSION_STARTED:
             update["status"] = SessionStatus.WORKING
         else:
@@ -102,6 +102,8 @@ def _update_session_from_event(session: RuntimeSession, event: EventRecord) -> R
     elif event.event_type == EventType.TOOL_STARTED:
         update["status"] = SessionStatus.WORKING
         update["progress_summary"] = f"Running tool: {payload.get('tool_name') or 'unknown'}"
+    elif event.event_type == EventType.TOOL_FINISHED:
+        update["progress_summary"] = f"Finished tool: {payload.get('tool_name') or 'unknown'}"
     elif event.event_type == EventType.WAITING_PERMISSION:
         update["status"] = SessionStatus.WAITING_PERMISSION
         update["progress_summary"] = payload.get("message") or "Waiting for permission"

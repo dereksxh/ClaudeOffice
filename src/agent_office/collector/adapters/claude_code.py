@@ -15,8 +15,32 @@ CLAUDE_CAPABILITIES = [
 ]
 
 
-def _event_id(machine_id: str, session_id: str, hook_event_name: str, tool_use_id: str, agent_id: str) -> str:
-    raw = f"{machine_id}:{session_id}:{hook_event_name}:{tool_use_id}:{agent_id}"
+HOOK_EVENT_NAMES = {
+    "SessionStart": "session_start",
+    "UserPromptSubmit": "user_prompt_submit",
+    "PreToolUse": "pre_tool_use",
+    "PostToolUse": "post_tool_use",
+    "SubagentStart": "subagent_start",
+    "SubagentStop": "subagent_stop",
+    "Stop": "stop",
+}
+
+
+def _canonical_hook_event_name(hook_event_name: str) -> str:
+    return HOOK_EVENT_NAMES.get(hook_event_name, hook_event_name)
+
+
+def _event_id(
+    machine_id: str,
+    session_id: str,
+    hook_event_name: str,
+    tool_use_id: str,
+    agent_id: str,
+    discriminator: str,
+) -> str:
+    raw = f"{machine_id}:{session_id}:{hook_event_name}:{tool_use_id}:{agent_id}:{discriminator}"
+    if not discriminator:
+        raw = f"{machine_id}:{session_id}:{hook_event_name}:{tool_use_id}:{agent_id}"
     return "claude-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
@@ -26,6 +50,7 @@ def map_claude_hook_event(
     payload: dict[str, Any],
     timestamp: datetime,
 ) -> EventRecord:
+    canonical_hook_event_name = _canonical_hook_event_name(hook_event_name)
     session_id = str(payload.get("session_id") or "unknown")
     cwd = payload.get("cwd")
     project_name = Path(cwd).name if isinstance(cwd, str) and cwd else None
@@ -40,12 +65,12 @@ def map_claude_hook_event(
         "capabilities": CLAUDE_CAPABILITIES,
     }
 
-    if hook_event_name == "session_start":
+    if canonical_hook_event_name == "session_start":
         event_type = EventType.SESSION_STARTED
-    elif hook_event_name == "user_prompt_submit":
+    elif canonical_hook_event_name == "user_prompt_submit":
         event_type = EventType.USER_PROMPT
         event_payload["current_task"] = payload.get("prompt")
-    elif hook_event_name == "pre_tool_use" and tool_name in {"Task", "Agent"}:
+    elif canonical_hook_event_name == "pre_tool_use" and tool_name in {"Task", "Agent"}:
         tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
         event_type = EventType.AGENT_STARTED
         agent_id = f"subagent_{tool_use_id}"
@@ -55,24 +80,37 @@ def map_claude_hook_event(
                 "task_description": tool_input.get("prompt") or tool_input.get("description"),
             }
         )
-    elif hook_event_name == "pre_tool_use":
+    elif canonical_hook_event_name == "pre_tool_use":
         event_type = EventType.TOOL_STARTED
         event_payload["tool_name"] = tool_name
-    elif hook_event_name == "post_tool_use":
+    elif canonical_hook_event_name == "post_tool_use":
         event_type = EventType.TOOL_FINISHED
         event_payload["tool_name"] = tool_name
-    elif hook_event_name == "subagent_start":
+    elif canonical_hook_event_name == "subagent_start":
         event_type = EventType.AGENT_STARTED
         agent_id = str(payload.get("agent_id") or agent_id)
         event_payload["native_agent_id"] = payload.get("agent_id")
-    elif hook_event_name == "subagent_stop":
+    elif canonical_hook_event_name == "subagent_stop":
         event_type = EventType.AGENT_STOPPED
         agent_id = str(payload.get("agent_id") or agent_id)
-    elif hook_event_name == "stop":
+    elif canonical_hook_event_name == "stop":
         event_type = EventType.SESSION_STOPPED
 
+    discriminator = tool_use_id
+    if tool_use_id == "unknown":
+        discriminator = str(payload.get("prompt") or payload.get("transcript_path") or "")
+    else:
+        discriminator = ""
+
     return EventRecord(
-        event_id=_event_id(machine_id, session_id, hook_event_name, tool_use_id, agent_id),
+        event_id=_event_id(
+            machine_id,
+            session_id,
+            canonical_hook_event_name,
+            tool_use_id,
+            agent_id,
+            discriminator,
+        ),
         machine_id=machine_id,
         runtime_type=RuntimeType.CLAUDE_CODE,
         session_id=session_id,
