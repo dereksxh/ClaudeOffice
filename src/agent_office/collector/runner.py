@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 import time
 from datetime import UTC, datetime
 
@@ -40,5 +41,8 @@ def main() -> None:
     adapters: list[RuntimeAdapter] = [FakeAdapter(machine_id=args.machine_id, hostname=args.hostname)]
 
     while True:
-        collect_once(client, adapters)
+        try:
+            collect_once(client, adapters)
+        except Exception as exc:
+            print(f"collector iteration failed: {exc}", file=sys.stderr)
         time.sleep(args.interval)

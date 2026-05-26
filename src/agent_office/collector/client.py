@@ -14,6 +14,9 @@ class CollectorClient:
     token: str
     _test_client: TestClient | None = None
 
+    def __post_init__(self) -> None:
+        self.base_url = self.base_url.rstrip("/")
+
     @classmethod
     def for_test_client(cls, test_client: TestClient, token: str) -> CollectorClient:
         return cls(base_url="http://testserver", token=token, _test_client=test_client)
