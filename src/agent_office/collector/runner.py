@@ -9,9 +9,9 @@ from pathlib import Path
 
 from agent_office.collector.adapters.base import AdapterCommandResult, RuntimeAdapter
 from agent_office.collector.adapters.claude_code import ClaudeHookLogAdapter
-from agent_office.collector.adapters.codex import CodexHookLogAdapter
+from agent_office.collector.adapters.codex import CodexHookLogAdapter, CodexSessionDirectoryAdapter
 from agent_office.collector.adapters.fake import FakeAdapter
-from agent_office.collector.adapters.hermes import HermesSnapshotFileAdapter
+from agent_office.collector.adapters.hermes import HermesGatewayStateAdapter, HermesSnapshotFileAdapter
 from agent_office.collector.client import CollectorClient
 from agent_office.models import CommandStatus, ControlCommand
 
@@ -37,6 +37,13 @@ def build_adapters(args: argparse.Namespace) -> list[RuntimeAdapter]:
                 command_outbox_path=_command_outbox_path(args.command_outbox_dir, "codex"),
             )
         )
+    if args.codex_sessions_dir:
+        adapters.append(
+            CodexSessionDirectoryAdapter(
+                machine_id=args.machine_id,
+                sessions_dir=args.codex_sessions_dir,
+            )
+        )
     if args.claude_hook_log:
         adapters.append(
             ClaudeHookLogAdapter(
@@ -51,6 +58,13 @@ def build_adapters(args: argparse.Namespace) -> list[RuntimeAdapter]:
                 machine_id=args.machine_id,
                 snapshot_path=args.hermes_snapshot,
                 command_outbox_path=_command_outbox_path(args.command_outbox_dir, "hermes"),
+            )
+        )
+    if args.hermes_home:
+        adapters.append(
+            HermesGatewayStateAdapter(
+                machine_id=args.machine_id,
+                hermes_home=args.hermes_home,
             )
         )
     if args.enable_fake:
@@ -94,8 +108,10 @@ def main() -> None:
     parser.add_argument("--hostname", default=os.uname().nodename)
     parser.add_argument("--interval", type=float, default=3.0)
     parser.add_argument("--codex-hook-log", default=os.environ.get("AGENT_OFFICE_CODEX_HOOK_LOG"))
+    parser.add_argument("--codex-sessions-dir", default=os.environ.get("AGENT_OFFICE_CODEX_SESSIONS_DIR"))
     parser.add_argument("--claude-hook-log", default=os.environ.get("AGENT_OFFICE_CLAUDE_HOOK_LOG"))
     parser.add_argument("--hermes-snapshot", default=os.environ.get("AGENT_OFFICE_HERMES_SNAPSHOT"))
+    parser.add_argument("--hermes-home", default=os.environ.get("AGENT_OFFICE_HERMES_HOME"))
     parser.add_argument("--command-outbox-dir", default=os.environ.get("AGENT_OFFICE_COMMAND_OUTBOX_DIR"))
     parser.add_argument("--enable-fake", action="store_true", default=_truthy(os.environ.get("AGENT_OFFICE_ENABLE_FAKE")))
     args = parser.parse_args()

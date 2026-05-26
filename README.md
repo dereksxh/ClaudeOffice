@@ -44,6 +44,16 @@ http://localhost:8080
 
 ## Run the collector against local central
 
+For the current machine's Codex CLI sessions and Hermes gateways:
+
+```bash
+agent-office-collector --central-url http://127.0.0.1:8080 \
+  --codex-sessions-dir ~/.codex/sessions \
+  --hermes-home ~/.hermes
+```
+
+For hook/snapshot files exported by runtimes:
+
 ```bash
 agent-office-collector --central-url http://127.0.0.1:8080 \
   --codex-hook-log ~/.agent-office/codex-hooks.jsonl \

@@ -6,9 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from agent_office.collector.adapters.claude_code import ClaudeHookLogAdapter
-from agent_office.collector.adapters.codex import CodexHookLogAdapter
+from agent_office.collector.adapters.codex import CodexHookLogAdapter, CodexSessionDirectoryAdapter
 from agent_office.collector.adapters.fake import FakeAdapter
-from agent_office.collector.adapters.hermes import HermesSnapshotFileAdapter
+from agent_office.collector.adapters.hermes import HermesGatewayStateAdapter, HermesSnapshotFileAdapter
 from agent_office.collector.client import CollectorClient
 from agent_office.collector import runner
 from agent_office.collector.runner import build_adapters, collect_once
@@ -168,8 +168,10 @@ def test_runner_builds_configured_runtime_adapters_and_fake_is_opt_in(tmp_path) 
         machine_id="machine-a",
         hostname="worker-a",
         codex_hook_log=str(codex_log),
+        codex_sessions_dir=None,
         claude_hook_log=str(claude_log),
         hermes_snapshot=str(hermes_snapshot),
+        hermes_home=None,
         command_outbox_dir=str(outbox_dir),
         enable_fake=False,
     )
@@ -186,6 +188,29 @@ def test_runner_builds_configured_runtime_adapters_and_fake_is_opt_in(tmp_path) 
     fake_adapters = build_adapters(fake_args)
 
     assert any(isinstance(adapter, FakeAdapter) for adapter in fake_adapters)
+
+
+def test_runner_builds_local_discovery_adapters(tmp_path) -> None:
+    codex_sessions = tmp_path / "codex-sessions"
+    hermes_home = tmp_path / "hermes"
+    args = Namespace(
+        machine_id="machine-a",
+        hostname="worker-a",
+        codex_hook_log=None,
+        codex_sessions_dir=str(codex_sessions),
+        claude_hook_log=None,
+        hermes_snapshot=None,
+        hermes_home=str(hermes_home),
+        command_outbox_dir=None,
+        enable_fake=False,
+    )
+
+    adapters = build_adapters(args)
+
+    assert [type(adapter) for adapter in adapters] == [
+        CodexSessionDirectoryAdapter,
+        HermesGatewayStateAdapter,
+    ]
 
 
 def test_codex_hook_log_adapter_maps_events_and_writes_command_outbox(tmp_path) -> None:
@@ -235,6 +260,70 @@ def test_codex_hook_log_adapter_maps_events_and_writes_command_outbox(tmp_path) 
     assert outbox_record["action"] == "continue"
 
 
+def test_codex_session_directory_adapter_maps_recent_session_files(tmp_path) -> None:
+    sessions_dir = tmp_path / "sessions"
+    session_file = sessions_dir / "2026" / "05" / "26" / "rollout.jsonl"
+    session_file.parent.mkdir(parents=True)
+    session_file.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": "2026-05-26T03:00:00Z",
+                        "type": "session_meta",
+                        "payload": {
+                            "id": "codex-session-1",
+                            "cwd": "/repo",
+                            "cli_version": "0.133.0",
+                            "model": "gpt-5.4",
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-05-26T03:01:00Z",
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "user",
+                            "content": [{"type": "input_text", "text": "Connect local Codex"}],
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-05-26T03:02:00Z",
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "assistant",
+                            "content": [{"type": "output_text", "text": "Inspecting session files"}],
+                        },
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    adapter = CodexSessionDirectoryAdapter(
+        machine_id="machine-a",
+        sessions_dir=sessions_dir,
+        max_sessions=5,
+        active_ttl_seconds=3600,
+    )
+
+    events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 3, tzinfo=UTC))
+
+    assert len(events) == 1
+    assert events[0].runtime_type == RuntimeType.CODEX
+    assert events[0].session_id == "codex-session-1"
+    assert events[0].payload["project_name"] == "repo"
+    assert events[0].payload["current_task"] == "Connect local Codex"
+    assert events[0].payload["progress_summary"] == "Inspecting session files"
+    assert events[0].payload["status"] == "working"
+
+
 def test_hermes_snapshot_file_adapter_maps_snapshot_file(tmp_path) -> None:
     snapshot_path = tmp_path / "hermes.json"
     snapshot_path.write_text(
@@ -260,3 +349,41 @@ def test_hermes_snapshot_file_adapter_maps_snapshot_file(tmp_path) -> None:
     assert events[0].runtime_type == RuntimeType.HERMES
     assert events[0].session_id == "hermes-1"
     assert events[0].payload["progress_summary"] == "processing request"
+
+
+def test_hermes_gateway_state_adapter_maps_root_and_profiles(tmp_path) -> None:
+    hermes_home = tmp_path / "hermes"
+    (hermes_home / "profiles" / "luoluo").mkdir(parents=True)
+    (hermes_home / "gateway_state.json").write_text(
+        json.dumps(
+            {
+                "pid": 6208,
+                "gateway_state": "running",
+                "active_agents": 0,
+                "platforms": {"api_server": {"state": "connected"}},
+                "updated_at": "2026-05-26T03:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (hermes_home / "profiles" / "luoluo" / "gateway_state.json").write_text(
+        json.dumps(
+            {
+                "pid": 115239,
+                "gateway_state": "running",
+                "active_agents": 2,
+                "platforms": {"api_server": {"state": "connected"}},
+                "updated_at": "2026-05-26T03:01:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    adapter = HermesGatewayStateAdapter(machine_id="machine-a", hermes_home=hermes_home)
+
+    events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 2, tzinfo=UTC))
+
+    assert [event.session_id for event in events] == ["hermes:default", "hermes:luoluo"]
+    assert events[0].payload["status"] == "idle"
+    assert events[1].payload["status"] == "working"
+    assert events[1].payload["project_name"] == "Hermes luoluo"
+    assert "pid=115239" in events[1].payload["progress_summary"]
