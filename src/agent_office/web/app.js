@@ -7,9 +7,7 @@ let activeView = "console";
 let socket = null;
 const officeRuntimeNodes = new Map();
 const officeDeskNodes = new Map();
-const officeIdleNodes = new Map();
 const RUNTIME_ORDER = ["codex", "hermes", "claude_code"];
-const PROMINENT_OFFICE_STATUSES = new Set(["working", "waiting_permission", "waiting_input", "blocked", "starting"]);
 const IDLE_ACTIVITIES = ["sleeping", "phone", "chatting"];
 const WAITING_SPRITE_STATUSES = new Set(["waiting_permission", "waiting_input", "blocked", "starting", "waiting"]);
 
@@ -65,10 +63,6 @@ function sessionKey(session) {
 
 function statusClass(status) {
   return String(status || "unknown").replaceAll("_", "-").replace(/[^a-z0-9-]/gi, "-").toLowerCase();
-}
-
-function isProminentOfficeSession(session) {
-  return PROMINENT_OFFICE_STATUSES.has(String(session.status || ""));
 }
 
 function runtimeInitial(runtimeType) {
@@ -131,6 +125,13 @@ function stableHash(value) {
 function idleActivityForSession(session) {
   const index = stableHash(sessionKey(session)) % IDLE_ACTIVITIES.length;
   return IDLE_ACTIVITIES[index];
+}
+
+function officeTaskText(session) {
+  if (session.status === "idle") {
+    return session.project_name || session.progress_summary || session.current_task || session.session_id;
+  }
+  return session.progress_summary || session.current_task || session.project_name || session.session_id;
 }
 
 function formatTime(value) {
@@ -282,7 +283,7 @@ function renderDetail() {
 function renderOffice() {
   const emptyOfficeNode = officeView.querySelector("[data-office-empty]");
   if (state.sessions.length === 0) {
-    removeStaleOfficeNodes(new Set(), new Set(), new Set());
+    removeStaleOfficeNodes(new Set(), new Set());
     if (!emptyOfficeNode) {
       const empty = emptyNode("No active desks");
       empty.dataset.officeEmpty = "true";
@@ -306,36 +307,26 @@ function renderOffice() {
 
   const activeRuntimeKeys = new Set();
   const activeDeskKeys = new Set();
-  const activeIdleKeys = new Set();
   Array.from(sessionsByRuntime.entries())
     .sort(([left], [right]) => runtimeSortKey(left).localeCompare(runtimeSortKey(right)))
     .forEach(([runtimeType, sessions], runtimeIndex) => {
-      const prominentSessions = sessions.filter(isProminentOfficeSession);
-      const idleSessions = sessions.filter((session) => session.status === "idle");
-      if (prominentSessions.length === 0 && idleSessions.length === 0) {
+      const visibleSessions = sessions.filter((session) => session.status !== "offline");
+      if (visibleSessions.length === 0) {
         return;
       }
 
       activeRuntimeKeys.add(runtimeType);
       const zone = ensureOfficeRuntimeNode(runtimeType);
-      updateOfficeRuntimeNode(zone, runtimeType, sessions, prominentSessions.length, idleSessions.length);
+      updateOfficeRuntimeNode(zone, runtimeType, visibleSessions);
       zone.style.setProperty("--runtime-index", String(runtimeIndex));
 
-      prominentSessions.forEach((session, sessionIndex) => {
+      visibleSessions.forEach((session, sessionIndex) => {
         const deskKey = sessionKey(session);
         activeDeskKeys.add(deskKey);
         const desk = ensureOfficeDeskNode(deskKey);
         updateOfficeDeskNode(desk, session, sessionIndex, machinesById.get(session.machine_id));
         zone.querySelector(".office-desks").append(desk);
       });
-
-      if (idleSessions.length > 0) {
-        const idleKey = String(runtimeType);
-        activeIdleKeys.add(idleKey);
-        const idleNode = ensureOfficeIdleNode(idleKey);
-        updateOfficeIdleNode(idleNode, runtimeType, idleSessions);
-        zone.querySelector(".office-desks").append(idleNode);
-      }
 
       officeView.append(zone);
     });
@@ -344,7 +335,7 @@ function renderOffice() {
     empty.dataset.officeEmpty = "true";
     officeView.append(empty);
   }
-  removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys, activeIdleKeys);
+  removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys);
 }
 
 function formatCompactNumber(value) {
@@ -487,7 +478,7 @@ function ensureOfficeRuntimeNode(runtimeType) {
   node.className = `office-runtime-zone runtime-zone-${statusClass(runtimeType)}`;
   node.dataset.runtimeType = runtimeType;
   node.innerHTML = `
-    <header class="office-zone-header">
+    <header class="office-zone-header office-stage-label">
       <div>
         <strong data-field="runtime-name"></strong>
         <small data-field="runtime-summary"></small>
@@ -500,11 +491,12 @@ function ensureOfficeRuntimeNode(runtimeType) {
   return node;
 }
 
-function updateOfficeRuntimeNode(node, runtimeType, sessions, prominentCount, idleCount) {
+function updateOfficeRuntimeNode(node, runtimeType, sessions) {
+  const idleCount = sessions.filter((session) => session.status === "idle").length;
   const workingCount = sessions.filter((session) => session.status === "working").length;
   node.querySelector('[data-field="runtime-name"]').textContent = `${runtimeTypeLabel(runtimeType)} Area`;
   node.querySelector('[data-field="runtime-summary"]').textContent =
-    `${prominentCount} active / ${idleCount} idle / ${workingCount} working`;
+    `${sessions.length} desks / ${idleCount} idle / ${workingCount} working`;
   const mascot = node.querySelector('[data-field="runtime-mascot"]');
   mascot.className = `runtime-mascot ${mascotForRuntime(runtimeType)}`;
   mascot.textContent = runtimeType === "codex" ? "calf" : runtimeType === "hermes" ? "pony" : "agent";
@@ -571,71 +563,16 @@ function updateOfficeDeskNode(node, session, sessionIndex, machine) {
   if (generatedAgent && generatedAgent.className !== spriteClassName) {
     generatedAgent.className = spriteClassName;
   }
-  node.querySelector('[data-field="project"]').textContent = session.project_name || session.session_id;
+  node.querySelector('[data-field="project"]').textContent = officeTaskText(session);
   node.querySelector('[data-field="runtime"]').textContent =
-    `${runtimeInitial(session.runtime_type)} / ${machine?.hostname || session.machine_id} / ${session.status || "unknown"}`;
+    `${runtimeInitial(session.runtime_type)} / ${session.project_name || machine?.hostname || session.machine_id} / ${session.status || "unknown"}`;
 }
 
-function ensureOfficeIdleNode(idleKey) {
-  if (officeIdleNodes.has(idleKey)) {
-    return officeIdleNodes.get(idleKey);
-  }
-
-  const node = document.createElement("button");
-  node.type = "button";
-  node.innerHTML = `
-    <span class="idle-sprite-preview" aria-hidden="true">
-      <span class="generated-agent idle-agent" data-field="idle-agent"></span>
-    </span>
-    <span class="office-idle-copy">
-      <strong data-field="idle-count"></strong>
-      <small data-field="idle-projects"></small>
-    </span>
-  `;
-  node.addEventListener("click", () => {
-    selectedSessionId = node.dataset.sessionKey;
-    render();
-  });
-  officeIdleNodes.set(idleKey, node);
-  return node;
-}
-
-function updateOfficeIdleNode(node, runtimeType, idleSessions) {
-  const selectedIdle = idleSessions.find((session) => sessionKey(session) === selectedSessionId);
-  const representativeSession = selectedIdle || idleSessions[0];
-  const selected = selectedIdle ? "selected" : "";
-  node.className = ["office-idle-summary", `runtime-${statusClass(runtimeType)}`, selected].filter(Boolean).join(" ");
-  node.dataset.sessionKey = sessionKey(representativeSession);
-  const idleActivity = idleActivityForSession(representativeSession);
-  const idleSprite = node.querySelector('[data-field="idle-agent"]');
-  const idleSpriteClassName = [
-    "generated-agent",
-    "idle-agent",
-    `asset-${officeSpriteCharacter(runtimeType)}`,
-    `asset-${officeSpriteActivity(representativeSession, idleActivity)}`,
-    `activity-${idleActivity}`,
-    mascotForRuntime(runtimeType),
-  ].join(" ");
-  if (idleSprite && idleSprite.className !== idleSpriteClassName) {
-    idleSprite.className = idleSpriteClassName;
-  }
-  node.querySelector('[data-field="idle-count"]').textContent = `${idleSessions.length} idle desks`;
-  const projectNames = Array.from(new Set(idleSessions.map((session) => session.project_name).filter(Boolean)));
-  node.querySelector('[data-field="idle-projects"]').textContent =
-    projectNames.slice(0, 3).join(" / ") || runtimeTypeLabel(runtimeType);
-}
-
-function removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys, activeIdleKeys) {
+function removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys) {
   for (const [deskKey, node] of officeDeskNodes) {
     if (!activeDeskKeys.has(deskKey)) {
       node.remove();
       officeDeskNodes.delete(deskKey);
-    }
-  }
-  for (const [idleKey, node] of officeIdleNodes) {
-    if (!activeIdleKeys.has(idleKey)) {
-      node.remove();
-      officeIdleNodes.delete(idleKey);
     }
   }
   for (const [runtimeType, node] of officeRuntimeNodes) {

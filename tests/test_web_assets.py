@@ -91,13 +91,14 @@ def test_web_app_assigns_stable_idle_activities() -> None:
     assert "activity-${activity}" in js
 
 
-def test_web_app_collapses_idle_office_sessions() -> None:
+def test_web_app_renders_idle_office_sessions_as_desks() -> None:
     js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 
-    assert "officeIdleNodes" in js
-    assert "isProminentOfficeSession" in js
-    assert "ensureOfficeIdleNode" in js
-    assert "updateOfficeIdleNode" in js
+    assert "visibleSessions" in js
+    assert "officeTaskText" in js
+    assert "ensureOfficeIdleNode" not in js
+    assert "officeIdleNodes" not in js
+    assert "office-idle-summary" not in js
 
 
 def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
@@ -122,7 +123,7 @@ def test_web_app_uses_generated_office_sprite_assets() -> None:
     assert "officeSpriteActivity" in js
     assert "generated-agent" in js
     assert "generated-desk" in js
-    assert "idle-agent" in js
+    assert "asset-idle-phone" in css
     assert "/assets/office/backgrounds/office.png" in css
     assert "/assets/office/props/workstation-desk.png" in css
     assert "calf/typing-sheet-256.png" in css
@@ -160,16 +161,15 @@ def test_web_styles_include_animated_office_projection() -> None:
     assert ".office-floor" in css
     assert ".office-desk" in css
     assert ".office-runtime-zone" in css
-    assert ".office-idle-summary" in css
-    assert ".desk-surface" in css
+    assert ".office-stage-label" in css
+    assert "border: 0;" in css
+    assert "box-shadow: none;" in css
     assert ".mascot-cow" in css
     assert ".mascot-pony" in css
-    assert ".agent-person.working" in css
-    assert ".agent-person.activity-sleeping" in css
-    assert ".agent-person.activity-phone" in css
-    assert ".agent-person.activity-chatting" in css
-    assert ".agent-person.waiting-permission" in css
+    assert ".generated-agent.asset-typing" in css
+    assert ".generated-agent.asset-idle-sleep" in css
+    assert ".generated-agent.asset-idle-phone" in css
+    assert ".generated-agent.asset-idle-chat" in css
+    assert ".generated-agent.asset-waiting" in css
     assert "@keyframes deskPulse" in css
-    assert "@keyframes typingDot" in css
-    assert "@keyframes sleepingBreath" in css
-    assert "@keyframes phoneTap" in css
+    assert "@keyframes officeSpritePlay" in css
