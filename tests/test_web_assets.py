@@ -23,6 +23,25 @@ def test_web_app_gates_actions_by_capability() -> None:
     assert "session.capabilities.includes(action)" in js
 
 
+def test_web_app_collects_append_prompt_text() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert 'window.prompt("Prompt to append")' in js
+
+
+def test_web_app_reconnects_websocket_on_close() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "setTimeout(connectWebSocket" in js
+
+
+def test_web_app_filters_detail_commands_by_session_and_machine() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "command.target_session_id === session.session_id" in js
+    assert "command.target_machine_id === session.machine_id" in js
+
+
 def test_web_styles_keep_dense_console_layout() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 

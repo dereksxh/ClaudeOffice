@@ -142,6 +142,58 @@ def test_create_lease_and_complete_command(tmp_path) -> None:
     assert state["commands"][0]["status"] == "applied"
 
 
+def test_create_command_rejects_unsupported_session_capability(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer test-token"}
+
+    event_response = client.post(
+        "/api/events",
+        headers=headers,
+        json={
+            "event_id": "evt-1",
+            "machine_id": "machine-a",
+            "runtime_type": RuntimeType.CODEX,
+            "session_id": "codex-1",
+            "event_type": EventType.SESSION_STARTED,
+            "timestamp": datetime(2026, 5, 26, 3, 0, tzinfo=UTC).isoformat(),
+            "payload": {
+                "project_name": "repo",
+                "capabilities": ["request_report"],
+            },
+        },
+    )
+    assert event_response.status_code == 202
+
+    rejected_response = client.post(
+        "/api/commands",
+        headers=headers,
+        json={
+            "target_machine_id": "machine-a",
+            "target_session_id": "codex-1",
+            "action": CommandAction.APPEND_PROMPT,
+            "payload": {"prompt": "Continue with more detail."},
+            "actor": "derek",
+            "audit_metadata": {"source": "test"},
+        },
+    )
+    assert rejected_response.status_code == 403
+
+    allowed_response = client.post(
+        "/api/commands",
+        headers=headers,
+        json={
+            "target_machine_id": "machine-a",
+            "target_session_id": "codex-1",
+            "action": CommandAction.REQUEST_REPORT,
+            "payload": {"prompt": "Report progress."},
+            "actor": "derek",
+            "audit_metadata": {"source": "test"},
+        },
+    )
+    assert allowed_response.status_code == 201
+
+
 def test_command_result_unknown_command_returns_404(tmp_path) -> None:
     app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
     client = TestClient(app)

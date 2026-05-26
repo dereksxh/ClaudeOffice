@@ -136,7 +136,10 @@ function renderDetail() {
     return;
   }
 
-  const commands = state.commands.filter((command) => command.target_session_id === session.session_id);
+  const commands = state.commands.filter(
+    (command) =>
+      command.target_session_id === session.session_id && command.target_machine_id === session.machine_id,
+  );
   const agents = state.agents.filter((agent) => agent.session_id === session.session_id);
   sessionDetail.innerHTML = `
     <div class="detail-heading">
@@ -208,7 +211,15 @@ function renderActions(session) {
 }
 
 async function submitCommand(session, action) {
-  const payload = action === "append_prompt" ? { prompt: "" } : {};
+  const payload = {};
+  if (action === "append_prompt") {
+    const prompt = window.prompt("Prompt to append");
+    if (prompt === null || prompt === "") {
+      return;
+    }
+    payload.prompt = prompt;
+  }
+
   const response = await fetch("/api/commands", {
     method: "POST",
     headers: headers(),
@@ -234,18 +245,23 @@ function connectWebSocket() {
   }
 
   const wsProto = location.protocol === "https:" ? "wss" : "ws";
-  socket = new WebSocket(`${wsProto}://${location.host}/ws?token=${encodeURIComponent(defaultToken)}`);
+  const nextSocket = new WebSocket(`${wsProto}://${location.host}/ws?token=${encodeURIComponent(defaultToken)}`);
+  socket = nextSocket;
 
-  socket.addEventListener("open", () => {
+  nextSocket.addEventListener("open", () => {
     connectionStatus.textContent = "Live";
   });
-  socket.addEventListener("close", () => {
+  nextSocket.addEventListener("close", () => {
+    if (socket !== nextSocket) {
+      return;
+    }
     connectionStatus.textContent = "Offline";
+    setTimeout(connectWebSocket, 1500);
   });
-  socket.addEventListener("error", () => {
+  nextSocket.addEventListener("error", () => {
     connectionStatus.textContent = "Socket error";
   });
-  socket.addEventListener("message", (event) => {
+  nextSocket.addEventListener("message", (event) => {
     const message = JSON.parse(event.data);
     if (message.type === "state" && message.state) {
       setState(message.state);

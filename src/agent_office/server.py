@@ -138,6 +138,23 @@ def create_app(db_path: str | Path, api_token: str) -> FastAPI:
             audit_metadata=request.audit_metadata,
         )
         with get_conn() as conn:
+            state = project_state(
+                list_events(conn),
+                list_commands(conn),
+                now=datetime.now(UTC),
+            )
+            session = next(
+                (
+                    item
+                    for item in state.sessions
+                    if item.machine_id == request.target_machine_id and item.session_id == request.target_session_id
+                ),
+                None,
+            )
+            if session is not None:
+                supported_actions = [capability.value for capability in session.capabilities]
+                if request.action.value not in supported_actions:
+                    raise HTTPException(status_code=403, detail="Action is not supported by target session")
             create_command(conn, command)
         await broadcast_state()
         return command
