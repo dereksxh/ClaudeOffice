@@ -106,6 +106,29 @@ def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
     assert '.replaceAll("_", "-")' in js
 
 
+def test_web_app_uses_generated_office_sprite_assets() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    asset_dir = WEB_DIR / "assets" / "office"
+
+    assert (asset_dir / "manifest.json").is_file()
+    assert (asset_dir / "backgrounds" / "office.png").is_file()
+    assert (asset_dir / "props" / "workstation-desk.png").is_file()
+    for character in ("calf", "pony"):
+        for activity in ("typing", "waiting", "idle-sleep", "idle-phone", "idle-chat", "stand"):
+            assert (asset_dir / "characters" / character / f"{activity}-sheet-256.png").is_file()
+
+    assert "officeSpriteCharacter" in js
+    assert "officeSpriteActivity" in js
+    assert "generated-agent" in js
+    assert "generated-desk" in js
+    assert "/assets/office/backgrounds/office.png" in css
+    assert "/assets/office/props/workstation-desk.png" in css
+    assert "calf/typing-sheet-256.png" in css
+    assert "pony/typing-sheet-256.png" in css
+    assert "@keyframes officeSpritePlay" in css
+
+
 def test_web_app_renders_token_usage_summary() -> None:
     js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 

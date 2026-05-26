@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "frameCount": 4,
+  "frameDurationMs": 180,
+  "states": [
+    "walk",
+    "stand",
+    "sit",
+    "idle-sleep",
+    "idle-phone",
+    "idle-chat",
+    "typing",
+    "waiting"
+  ],
+  "layerOrder": [
+    "background",
+    "characters",
+    "deskForeground"
+  ],
+  "characters": {
+    "calf": {
+      "name": "Calf",
+      "states": {
+        "walk": {
+          "sheet512": "characters/calf/walk-sheet-512.png",
+          "sheet256": "characters/calf/walk-sheet-256.png",
+          "webp": "characters/calf/walk.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "stand": {
+          "sheet512": "characters/calf/stand-sheet-512.png",
+          "sheet256": "characters/calf/stand-sheet-256.png",
+          "webp": "characters/calf/stand.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "sit": {
+          "sheet512": "characters/calf/sit-sheet-512.png",
+          "sheet256": "characters/calf/sit-sheet-256.png",
+          "webp": "characters/calf/sit.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "idle-sleep": {
+          "sheet512": "characters/calf/idle-sleep-sheet-512.png",
+          "sheet256": "characters/calf/idle-sleep-sheet-256.png",
+          "webp": "characters/calf/idle-sleep.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "idle-phone": {
+          "sheet512": "characters/calf/idle-phone-sheet-512.png",
+          "sheet256": "characters/calf/idle-phone-sheet-256.png",
+          "webp": "characters/calf/idle-phone.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "idle-chat": {
+          "sheet512": "characters/calf/idle-chat-sheet-512.png",
+          "sheet256": "characters/calf/idle-chat-sheet-256.png",
+          "webp": "characters/calf/idle-chat.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "typing": {
+          "sheet512": "characters/calf/typing-sheet-512.png",
+          "sheet256": "characters/calf/typing-sheet-256.png",
+          "webp": "characters/calf/typing.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "waiting": {
+          "sheet512": "characters/calf/waiting-sheet-512.png",
+          "sheet256": "characters/calf/waiting-sheet-256.png",
+          "webp": "characters/calf/waiting.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        }
+      }
+    },
+    "pony": {
+      "name": "Pony",
+      "states": {
+        "walk": {
+          "sheet512": "characters/pony/walk-sheet-512.png",
+          "sheet256": "characters/pony/walk-sheet-256.png",
+          "webp": "characters/pony/walk.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "stand": {
+          "sheet512": "characters/pony/stand-sheet-512.png",
+          "sheet256": "characters/pony/stand-sheet-256.png",
+          "webp": "characters/pony/stand.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "sit": {
+          "sheet512": "characters/pony/sit-sheet-512.png",
+          "sheet256": "characters/pony/sit-sheet-256.png",
+          "webp": "characters/pony/sit.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "idle-sleep": {
+          "sheet512": "characters/pony/idle-sleep-sheet-512.png",
+          "sheet256": "characters/pony/idle-sleep-sheet-256.png",
+          "webp": "characters/pony/idle-sleep.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "idle-phone": {
+          "sheet512": "characters/pony/idle-phone-sheet-512.png",
+          "sheet256": "characters/pony/idle-phone-sheet-256.png",
+          "webp": "characters/pony/idle-phone.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "idle-chat": {
+          "sheet512": "characters/pony/idle-chat-sheet-512.png",
+          "sheet256": "characters/pony/idle-chat-sheet-256.png",
+          "webp": "characters/pony/idle-chat.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "typing": {
+          "sheet512": "characters/pony/typing-sheet-512.png",
+          "sheet256": "characters/pony/typing-sheet-256.png",
+          "webp": "characters/pony/typing.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "waiting": {
+          "sheet512": "characters/pony/waiting-sheet-512.png",
+          "sheet256": "characters/pony/waiting-sheet-256.png",
+          "webp": "characters/pony/waiting.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        }
+      }
+    }
+  },
+  "props": {
+    "workstationDesk": "props/workstation-desk.png"
+  },
+  "backgrounds": {
+    "office": "backgrounds/office.png"
+  }
+}

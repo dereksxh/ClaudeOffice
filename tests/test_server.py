@@ -350,3 +350,14 @@ def test_static_index_is_served(tmp_path) -> None:
 
     assert response.status_code == 200
     assert "Agent Office" in response.text
+
+
+def test_static_office_assets_are_served(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+
+    response = client.get("/assets/office/manifest.json")
+
+    assert response.status_code == 200
+    assert "calf" in response.text
+    assert "pony" in response.text

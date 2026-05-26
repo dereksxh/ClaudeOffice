@@ -11,6 +11,7 @@ from uuid import uuid4
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from agent_office.models import CommandAction, CommandStatus, ControlCommand, EventRecord
@@ -73,6 +74,7 @@ class WebSocketBroadcaster:
 
 def create_app(db_path: str | Path, api_token: str) -> FastAPI:
     app = FastAPI(title="Agent Office")
+    app.mount("/assets", StaticFiles(directory=WEB_DIR / "assets"), name="assets")
     db_file = Path(db_path)
     broadcaster = WebSocketBroadcaster()
 

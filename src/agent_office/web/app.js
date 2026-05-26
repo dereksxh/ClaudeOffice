@@ -11,6 +11,7 @@ const officeIdleNodes = new Map();
 const RUNTIME_ORDER = ["codex", "hermes", "claude_code"];
 const PROMINENT_OFFICE_STATUSES = new Set(["working", "waiting_permission", "waiting_input", "blocked", "starting"]);
 const IDLE_ACTIVITIES = ["sleeping", "phone", "chatting"];
+const WAITING_SPRITE_STATUSES = new Set(["waiting_permission", "waiting_input", "blocked", "starting", "waiting"]);
 
 const machineList = document.getElementById("machine-list");
 const sessionTable = document.getElementById("session-table");
@@ -91,6 +92,32 @@ function mascotForRuntime(runtimeType) {
     return "mascot-pony";
   }
   return "mascot-helper";
+}
+
+function officeSpriteCharacter(runtimeType) {
+  if (runtimeType === "hermes") {
+    return "pony";
+  }
+  return "calf";
+}
+
+function officeSpriteActivity(session, idleActivity) {
+  if (session.status === "working") {
+    return "typing";
+  }
+  if (WAITING_SPRITE_STATUSES.has(String(session.status || ""))) {
+    return "waiting";
+  }
+  if (idleActivity === "sleeping") {
+    return "idle-sleep";
+  }
+  if (idleActivity === "phone") {
+    return "idle-phone";
+  }
+  if (idleActivity === "chatting") {
+    return "idle-chat";
+  }
+  return "stand";
 }
 
 function stableHash(value) {
@@ -480,7 +507,7 @@ function updateOfficeRuntimeNode(node, runtimeType, sessions, prominentCount, id
     `${prominentCount} active / ${idleCount} idle / ${workingCount} working`;
   const mascot = node.querySelector('[data-field="runtime-mascot"]');
   mascot.className = `runtime-mascot ${mascotForRuntime(runtimeType)}`;
-  mascot.textContent = runtimeType === "codex" ? "cow" : runtimeType === "hermes" ? "pony" : "agent";
+  mascot.textContent = runtimeType === "codex" ? "calf" : runtimeType === "hermes" ? "pony" : "agent";
 }
 
 function ensureOfficeDeskNode(deskKey) {
@@ -491,28 +518,9 @@ function ensureOfficeDeskNode(deskKey) {
   const node = document.createElement("button");
   node.type = "button";
   node.innerHTML = `
-    <span class="desk-scene">
-      <span class="agent-person" aria-hidden="true">
-        <span class="mascot-ear left"></span>
-        <span class="mascot-ear right"></span>
-        <span class="mascot-horn left"></span>
-        <span class="mascot-horn right"></span>
-        <span class="mascot-mane"></span>
-        <span class="mascot-tail"></span>
-        <span class="agent-head"></span>
-        <span class="agent-body"></span>
-        <span class="mascot-prop" data-field="activity-prop"></span>
-      </span>
-      <span class="desk-surface" aria-hidden="true">
-        <span class="desk-monitor"></span>
-        <span class="desk-keyboard"></span>
-        <span class="typing-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </span>
-      </span>
-      <span class="desk-chair" aria-hidden="true"></span>
+    <span class="desk-scene office-asset-scene">
+      <span class="generated-agent" data-field="office-agent" aria-hidden="true"></span>
+      <span class="generated-desk" aria-hidden="true"></span>
     </span>
     <span class="office-desk-copy">
       <strong data-field="project"></strong>
@@ -543,11 +551,26 @@ function updateOfficeDeskNode(node, session, sessionIndex, machine) {
 
   const person = node.querySelector(".agent-person");
   const mascotClass = mascotForRuntime(session.runtime_type);
-  const personClassName = ["agent-person", mascotClass, status, activityClass].join(" ");
-  if (person.className !== personClassName) {
-    person.className = personClassName;
+  if (person) {
+    const personClassName = ["agent-person", mascotClass, status, activityClass].join(" ");
+    if (person.className !== personClassName) {
+      person.className = personClassName;
+    }
   }
-  node.querySelector('[data-field="activity-prop"]').textContent = activity === "chatting" ? "..." : "";
+  const generatedAgent = node.querySelector('[data-field="office-agent"]');
+  const spriteCharacter = officeSpriteCharacter(session.runtime_type);
+  const spriteActivity = officeSpriteActivity(session, activity);
+  const spriteClassName = [
+    "generated-agent",
+    `asset-${spriteCharacter}`,
+    `asset-${spriteActivity}`,
+    status,
+    activityClass,
+    mascotClass,
+  ].join(" ");
+  if (generatedAgent && generatedAgent.className !== spriteClassName) {
+    generatedAgent.className = spriteClassName;
+  }
   node.querySelector('[data-field="project"]').textContent = session.project_name || session.session_id;
   node.querySelector('[data-field="runtime"]').textContent =
     `${runtimeInitial(session.runtime_type)} / ${machine?.hostname || session.machine_id} / ${session.status || "unknown"}`;
