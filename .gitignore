@@ -1,3 +1,6 @@
 .superpowers/
 .worktrees/
+.venv/
+__pycache__/
+*.py[cod]
 obsidian-staging/
