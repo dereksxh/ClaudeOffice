@@ -426,6 +426,7 @@ dd {
 .office-floor {
   position: relative;
   display: block;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   border: 0;
   border-radius: var(--radius);
@@ -434,7 +435,7 @@ dd {
     url("/assets/office/backgrounds/office.png") center / cover no-repeat,
     #f6f8fb;
   box-shadow: inset 0 0 44px rgba(45, 57, 72, 0.08);
-  min-height: 760px;
+  min-height: 620px;
   padding: 28px;
 }
 
@@ -662,6 +663,12 @@ dd {
   animation: deskPulse 2200ms ease-in-out infinite;
 }
 
+.office-desk.working .generated-agent {
+  filter:
+    drop-shadow(0 10px 10px rgba(25, 35, 45, 0.18))
+    drop-shadow(0 0 14px rgba(74, 151, 102, 0.34));
+}
+
 .office-desk.runtime-codex.working {
   border-color: transparent;
 }
@@ -749,7 +756,7 @@ dd {
   right: -10px;
   bottom: 0;
   z-index: 1;
-  display: block;
+  display: none;
   width: 164px;
   height: 118px;
   background: url("/assets/office/props/workstation-desk.png") center / contain no-repeat;

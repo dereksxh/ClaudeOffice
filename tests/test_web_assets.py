@@ -118,6 +118,21 @@ def test_web_app_assigns_independent_office_behaviors() -> None:
     assert "@keyframes actorWalkToDesk" in css
 
 
+def test_web_app_uses_background_office_anchor_map() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert "OFFICE_DESK_ANCHORS" in js
+    assert "OFFICE_LOUNGE_ANCHORS" in js
+    assert "const anchors = OFFICE_DESK_ANCHORS[runtimeType]" in js
+    assert "{ x: 36.8, y: 18.7 }" in js
+    assert "{ x: 76.5, y: 53.8 }" in js
+    assert "{ place: \"lounge\", label: \"沙发区\", x: 9.6, y: 55.4 }" in js
+    assert "aspect-ratio: 16 / 9;" in css
+    assert ".generated-desk" in css
+    assert "display: none;" in css
+
+
 def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
     js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 

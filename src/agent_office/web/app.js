@@ -14,6 +14,56 @@ const WAITING_SPRITE_STATUSES = new Set(["waiting_permission", "waiting_input", 
 const OFFICE_WALK_MS = 2200;
 const OFFICE_BEHAVIOR_SLOT_MS = 60000;
 let officeRenderTimer = null;
+const OFFICE_DESK_ANCHORS = {
+  codex: [
+    { x: 36.8, y: 18.7 },
+    { x: 43.4, y: 18.7 },
+    { x: 53.2, y: 18.7 },
+    { x: 59.3, y: 18.7 },
+    { x: 69.0, y: 18.7 },
+    { x: 75.2, y: 18.7 },
+    { x: 36.6, y: 35.7 },
+    { x: 43.5, y: 35.7 },
+    { x: 53.1, y: 35.7 },
+    { x: 59.6, y: 35.7 },
+    { x: 69.5, y: 35.7 },
+    { x: 76.2, y: 35.7 },
+    { x: 36.2, y: 53.8 },
+    { x: 42.8, y: 53.8 },
+    { x: 53.2, y: 53.8 },
+    { x: 59.8, y: 53.8 },
+    { x: 70.2, y: 53.8 },
+    { x: 76.5, y: 53.8 },
+  ],
+  hermes: [
+    { x: 88.4, y: 29.0 },
+    { x: 93.2, y: 29.0 },
+    { x: 88.7, y: 40.1 },
+    { x: 93.5, y: 40.1 },
+    { x: 89.0, y: 50.9 },
+    { x: 93.8, y: 50.9 },
+    { x: 68.6, y: 80.0 },
+    { x: 73.8, y: 80.0 },
+  ],
+  claude_code: [
+    { x: 26.8, y: 80.0 },
+    { x: 31.6, y: 80.0 },
+    { x: 22.8, y: 85.0 },
+    { x: 31.8, y: 85.0 },
+  ],
+  other: [
+    { x: 36.8, y: 18.7 },
+    { x: 53.2, y: 35.7 },
+    { x: 70.2, y: 53.8 },
+    { x: 88.7, y: 40.1 },
+  ],
+};
+const OFFICE_LOUNGE_ANCHORS = [
+  { place: "lounge", label: "沙发区", x: 9.6, y: 55.4 },
+  { place: "lounge", label: "讨论区", x: 13.2, y: 78.3 },
+  { place: "lounge", label: "会议室", x: 28.5, y: 80.2 },
+  { place: "lounge", label: "茶水区", x: 69.2, y: 78.8 },
+];
 
 const machineList = document.getElementById("machine-list");
 const sessionTable = document.getElementById("session-table");
@@ -139,35 +189,24 @@ function clamp(value, min, max) {
 }
 
 function officeDeskPosition(runtimeType, sessionIndex) {
-  const configs = {
-    codex: { x: 10, y: 24, columns: 5, xStep: 16, yStep: 14 },
-    hermes: { x: 12, y: 71, columns: 4, xStep: 18, yStep: 10 },
-    claude_code: { x: 60, y: 70, columns: 3, xStep: 14, yStep: 10 },
-    other: { x: 66, y: 26, columns: 3, xStep: 12, yStep: 12 },
-  };
-  const config = configs[runtimeType] || configs.other;
-  const column = sessionIndex % config.columns;
-  const row = Math.floor(sessionIndex / config.columns);
+  const anchors = OFFICE_DESK_ANCHORS[runtimeType] || OFFICE_DESK_ANCHORS.other;
+  const anchor = anchors[sessionIndex % anchors.length];
+  const wrap = Math.floor(sessionIndex / anchors.length);
   return {
     place: "desk",
-    x: clamp(config.x + column * config.xStep + (row % 2) * 3, 8, 92),
-    y: clamp(config.y + row * config.yStep, 18, 86),
+    x: clamp(anchor.x + (wrap % 3) * 1.5, 5, 95),
+    y: clamp(anchor.y + wrap * 2, 14, 88),
   };
 }
 
 function officeLoungePosition(loungeIndex, memberIndex, memberCount) {
-  const lounges = [
-    { place: "lounge", label: "休息室", x: 72, y: 25 },
-    { place: "lounge", label: "茶水区", x: 80, y: 53 },
-    { place: "lounge", label: "沙发区", x: 58, y: 76 },
-  ];
-  const lounge = lounges[loungeIndex % lounges.length];
+  const lounge = OFFICE_LOUNGE_ANCHORS[loungeIndex % OFFICE_LOUNGE_ANCHORS.length];
   const spread = memberCount > 1 ? memberIndex - (memberCount - 1) / 2 : 0;
   return {
     place: lounge.place,
     label: lounge.label,
-    x: clamp(lounge.x + spread * 7, 8, 92),
-    y: clamp(lounge.y + (memberIndex % 2) * 4, 18, 86),
+    x: clamp(lounge.x + spread * 4.2, 5, 95),
+    y: clamp(lounge.y + (memberIndex % 2) * 2.8, 14, 88),
   };
 }
 
