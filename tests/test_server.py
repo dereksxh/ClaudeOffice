@@ -107,6 +107,24 @@ def test_create_lease_and_complete_command(tmp_path) -> None:
     client = TestClient(app)
     headers = {"Authorization": "Bearer test-token"}
 
+    event_response = client.post(
+        "/api/events",
+        headers=headers,
+        json={
+            "event_id": "evt-1",
+            "machine_id": "machine-a",
+            "runtime_type": RuntimeType.CODEX,
+            "session_id": "codex-1",
+            "event_type": EventType.SESSION_STARTED,
+            "timestamp": datetime(2026, 5, 26, 3, 0, tzinfo=UTC).isoformat(),
+            "payload": {
+                "project_name": "repo",
+                "capabilities": ["request_report", "continue"],
+            },
+        },
+    )
+    assert event_response.status_code == 202
+
     create_response = client.post(
         "/api/commands",
         headers=headers,
@@ -134,7 +152,7 @@ def test_create_lease_and_complete_command(tmp_path) -> None:
     result_response = client.post(
         f"/api/collector/commands/{command_id}/result",
         headers=headers,
-        json={"status": "applied", "result_summary": "report requested"},
+        json={"machine_id": "machine-a", "status": "applied", "result_summary": "report requested"},
     )
     assert result_response.status_code == 200
 
@@ -194,6 +212,25 @@ def test_create_command_rejects_unsupported_session_capability(tmp_path) -> None
     assert allowed_response.status_code == 201
 
 
+def test_create_command_rejects_unknown_session(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/commands",
+        headers={"Authorization": "Bearer test-token"},
+        json={
+            "target_machine_id": "machine-a",
+            "target_session_id": "missing-session",
+            "action": CommandAction.REQUEST_REPORT,
+            "payload": {"prompt": "Report progress."},
+            "actor": "derek",
+        },
+    )
+
+    assert response.status_code == 404
+
+
 def test_command_result_unknown_command_returns_404(tmp_path) -> None:
     app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
     client = TestClient(app)
@@ -201,7 +238,7 @@ def test_command_result_unknown_command_returns_404(tmp_path) -> None:
     response = client.post(
         "/api/collector/commands/missing-command/result",
         headers={"Authorization": "Bearer test-token"},
-        json={"status": "applied", "result_summary": "not found"},
+        json={"machine_id": "machine-a", "status": "applied", "result_summary": "not found"},
     )
 
     assert response.status_code == 404
@@ -214,10 +251,76 @@ def test_command_result_rejects_non_terminal_status(tmp_path) -> None:
     response = client.post(
         "/api/collector/commands/cmd-1/result",
         headers={"Authorization": "Bearer test-token"},
-        json={"status": "leased", "result_summary": "still running"},
+        json={"machine_id": "machine-a", "status": "leased", "result_summary": "still running"},
     )
 
     assert response.status_code == 422
+
+
+def test_command_result_requires_leased_target_machine(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer test-token"}
+
+    event_response = client.post(
+        "/api/events",
+        headers=headers,
+        json={
+            "event_id": "evt-1",
+            "machine_id": "machine-a",
+            "runtime_type": RuntimeType.CODEX,
+            "session_id": "codex-1",
+            "event_type": EventType.SESSION_STARTED,
+            "timestamp": datetime(2026, 5, 26, 3, 0, tzinfo=UTC).isoformat(),
+            "payload": {
+                "project_name": "repo",
+                "capabilities": ["request_report"],
+            },
+        },
+    )
+    assert event_response.status_code == 202
+
+    create_response = client.post(
+        "/api/commands",
+        headers=headers,
+        json={
+            "target_machine_id": "machine-a",
+            "target_session_id": "codex-1",
+            "action": CommandAction.REQUEST_REPORT,
+            "payload": {"prompt": "Report progress."},
+            "actor": "derek",
+        },
+    )
+    assert create_response.status_code == 201
+    command_id = create_response.json()["command_id"]
+
+    lease_response = client.post(
+        "/api/collector/commands/lease",
+        headers=headers,
+        json={"machine_id": "machine-a", "limit": 5},
+    )
+    assert lease_response.status_code == 200
+
+    wrong_machine_response = client.post(
+        f"/api/collector/commands/{command_id}/result",
+        headers=headers,
+        json={"machine_id": "machine-b", "status": "applied", "result_summary": "wrong collector"},
+    )
+    assert wrong_machine_response.status_code == 404
+
+    first_response = client.post(
+        f"/api/collector/commands/{command_id}/result",
+        headers=headers,
+        json={"machine_id": "machine-a", "status": "applied", "result_summary": "report requested"},
+    )
+    assert first_response.status_code == 200
+
+    second_response = client.post(
+        f"/api/collector/commands/{command_id}/result",
+        headers=headers,
+        json={"machine_id": "machine-a", "status": "failed", "result_summary": "stale retry"},
+    )
+    assert second_response.status_code == 404
 
 
 def test_broadcast_disconnects_socket_after_send_error() -> None:

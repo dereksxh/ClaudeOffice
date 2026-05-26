@@ -1,13 +1,18 @@
 from datetime import UTC, datetime
+from argparse import Namespace
+import json
 
 import pytest
 from fastapi.testclient import TestClient
 
+from agent_office.collector.adapters.claude_code import ClaudeHookLogAdapter
+from agent_office.collector.adapters.codex import CodexHookLogAdapter
 from agent_office.collector.adapters.fake import FakeAdapter
+from agent_office.collector.adapters.hermes import HermesSnapshotFileAdapter
 from agent_office.collector.client import CollectorClient
 from agent_office.collector import runner
-from agent_office.collector.runner import collect_once
-from agent_office.models import CommandAction, EventType, RuntimeType
+from agent_office.collector.runner import build_adapters, collect_once
+from agent_office.models import CommandAction, ControlCommand, EventType, RuntimeType
 from agent_office.server import create_app
 
 
@@ -70,6 +75,12 @@ def test_collector_leases_and_applies_supported_command(tmp_path) -> None:
     collector_client = CollectorClient.for_test_client(test_client, token="test-token")
     adapter = FakeAdapter(machine_id="machine-a", hostname="worker-a")
 
+    collect_once(
+        client=collector_client,
+        adapters=[adapter],
+        now=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
+
     create_response = test_client.post(
         "/api/commands",
         headers={"Authorization": "Bearer test-token"},
@@ -97,11 +108,17 @@ def test_collector_leases_and_applies_supported_command(tmp_path) -> None:
     assert adapter.applied_commands == ["request_report"]
 
 
-def test_collector_marks_unsupported_command_failed(tmp_path) -> None:
+def test_collector_does_not_queue_unsupported_command(tmp_path) -> None:
     app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
     test_client = TestClient(app)
     collector_client = CollectorClient.for_test_client(test_client, token="test-token")
     adapter = FakeAdapter(machine_id="machine-a", hostname="worker-a")
+
+    collect_once(
+        client=collector_client,
+        adapters=[adapter],
+        now=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
 
     create_response = test_client.post(
         "/api/commands",
@@ -114,19 +131,7 @@ def test_collector_marks_unsupported_command_failed(tmp_path) -> None:
             "actor": "derek",
         },
     )
-    assert create_response.status_code == 201
-
-    collect_once(
-        client=collector_client,
-        adapters=[adapter],
-        now=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
-    )
-
-    state = test_client.get(
-        "/api/state",
-        headers={"Authorization": "Bearer test-token"},
-    ).json()
-    assert state["commands"][0]["status"] == "failed"
+    assert create_response.status_code == 403
     assert adapter.applied_commands == []
 
 
@@ -142,6 +147,7 @@ def test_runner_loop_continues_after_collect_once_error(monkeypatch, capsys) -> 
 
     monkeypatch.setattr(runner, "collect_once", fake_collect_once)
     monkeypatch.setattr(runner.time, "sleep", fake_sleep)
+    monkeypatch.setenv("AGENT_OFFICE_TOKEN", "test-token")
     monkeypatch.setattr("sys.argv", ["collector", "--interval", "0.25"])
 
     with pytest.raises(KeyboardInterrupt):
@@ -150,3 +156,107 @@ def test_runner_loop_continues_after_collect_once_error(monkeypatch, capsys) -> 
     captured = capsys.readouterr()
     assert "collector iteration failed: central unavailable" in captured.err
     assert sleep_calls == [0.25]
+
+
+def test_runner_builds_configured_runtime_adapters_and_fake_is_opt_in(tmp_path) -> None:
+    codex_log = tmp_path / "codex.jsonl"
+    claude_log = tmp_path / "claude.jsonl"
+    hermes_snapshot = tmp_path / "hermes.json"
+    outbox_dir = tmp_path / "outbox"
+
+    args = Namespace(
+        machine_id="machine-a",
+        hostname="worker-a",
+        codex_hook_log=str(codex_log),
+        claude_hook_log=str(claude_log),
+        hermes_snapshot=str(hermes_snapshot),
+        command_outbox_dir=str(outbox_dir),
+        enable_fake=False,
+    )
+
+    adapters = build_adapters(args)
+
+    assert [type(adapter) for adapter in adapters] == [
+        CodexHookLogAdapter,
+        ClaudeHookLogAdapter,
+        HermesSnapshotFileAdapter,
+    ]
+
+    fake_args = Namespace(**{**vars(args), "enable_fake": True})
+    fake_adapters = build_adapters(fake_args)
+
+    assert any(isinstance(adapter, FakeAdapter) for adapter in fake_adapters)
+
+
+def test_codex_hook_log_adapter_maps_events_and_writes_command_outbox(tmp_path) -> None:
+    hook_log = tmp_path / "codex.jsonl"
+    outbox = tmp_path / "codex-commands.jsonl"
+    hook_log.write_text(
+        json.dumps(
+            {
+                "hook_event_name": "UserPromptSubmit",
+                "timestamp": "2026-05-26T03:00:00+00:00",
+                "payload": {
+                    "session_id": "codex-1",
+                    "cwd": "/repo",
+                    "model": "gpt-5",
+                    "prompt": "Build Agent Office",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    adapter = CodexHookLogAdapter(
+        machine_id="machine-a",
+        hook_log_path=hook_log,
+        command_outbox_path=outbox,
+    )
+
+    events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 1, tzinfo=UTC))
+
+    assert events[0].runtime_type == RuntimeType.CODEX
+    assert events[0].event_type == EventType.USER_PROMPT
+    assert events[0].session_id == "codex-1"
+
+    result = adapter.apply_command(
+        ControlCommand(
+            command_id="cmd-1",
+            target_machine_id="machine-a",
+            target_session_id="codex-1",
+            action=CommandAction.CONTINUE,
+            actor="derek",
+        )
+    )
+
+    assert result.applied is True
+    outbox_record = json.loads(outbox.read_text(encoding="utf-8").strip())
+    assert outbox_record["command_id"] == "cmd-1"
+    assert outbox_record["action"] == "continue"
+
+
+def test_hermes_snapshot_file_adapter_maps_snapshot_file(tmp_path) -> None:
+    snapshot_path = tmp_path / "hermes.json"
+    snapshot_path.write_text(
+        json.dumps(
+            {
+                "session_id": "hermes-1",
+                "project_name": "ticketops",
+                "status": "working",
+                "summary": "processing request",
+                "can_accept_prompt": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    adapter = HermesSnapshotFileAdapter(
+        machine_id="machine-a",
+        snapshot_path=snapshot_path,
+        command_outbox_path=tmp_path / "hermes-commands.jsonl",
+    )
+
+    events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 0, tzinfo=UTC))
+
+    assert events[0].runtime_type == RuntimeType.HERMES
+    assert events[0].session_id == "hermes-1"
+    assert events[0].payload["progress_summary"] == "processing request"

@@ -47,8 +47,14 @@ class CollectorClient:
         response.raise_for_status()
         return [ControlCommand(**item) for item in response.json()["commands"]]
 
-    def post_command_result(self, command_id: str, status: CommandStatus, result_summary: str) -> None:
-        payload = {"status": status.value, "result_summary": result_summary}
+    def post_command_result(
+        self,
+        command_id: str,
+        machine_id: str,
+        status: CommandStatus,
+        result_summary: str,
+    ) -> None:
+        payload = {"machine_id": machine_id, "status": status.value, "result_summary": result_summary}
         if self._test_client:
             response = self._test_client.post(
                 f"/api/collector/commands/{command_id}/result",

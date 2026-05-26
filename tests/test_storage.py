@@ -83,6 +83,7 @@ def test_command_can_be_created_leased_and_completed() -> None:
     updated = complete_command(
         conn,
         command_id="cmd-1",
+        machine_id="machine-a",
         status=CommandStatus.APPLIED,
         result_summary="report requested",
         completed_at=datetime(2026, 5, 26, 3, 2, tzinfo=UTC),
@@ -100,6 +101,7 @@ def test_complete_command_reports_missing_command() -> None:
     updated = complete_command(
         conn,
         command_id="missing-command",
+        machine_id="machine-a",
         status=CommandStatus.APPLIED,
         result_summary="not found",
         completed_at=datetime(2026, 5, 26, 3, 2, tzinfo=UTC),

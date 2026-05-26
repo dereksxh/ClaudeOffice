@@ -7,6 +7,8 @@ from agent_office.models import Capability, CommandAction, ControlCommand, Event
 
 
 class FakeAdapter:
+    runtime_type = RuntimeType.HERMES
+
     def __init__(self, machine_id: str, hostname: str) -> None:
         self.machine_id = machine_id
         self.hostname = hostname

@@ -149,7 +149,7 @@ def project_state(
     now = now or datetime.now(UTC)
     machines: dict[str, Machine] = {}
     sessions: dict[tuple[str, str], RuntimeSession] = {}
-    agents: dict[tuple[str, str], AgentInstance] = {}
+    agents: dict[tuple[str, str, str], AgentInstance] = {}
 
     for event in sorted(events, key=lambda item: (item.timestamp, item.event_id)):
         if event.event_type == EventType.MACHINE_HEARTBEAT:
@@ -173,10 +173,14 @@ def project_state(
         sessions[(event.machine_id, event.session_id)] = session
 
         if event.agent_id is not None:
-            agent_key = (event.session_id, event.agent_id)
+            agent_key = (event.machine_id, event.session_id, event.agent_id)
             agent = agents.get(agent_key)
             if agent is None:
-                agent = AgentInstance(agent_id=event.agent_id, session_id=event.session_id)
+                agent = AgentInstance(
+                    agent_id=event.agent_id,
+                    machine_id=event.machine_id,
+                    session_id=event.session_id,
+                )
             agents[agent_key] = _update_agent_from_session(agent, session, event)
 
     lost_machine_ids: set[str] = set()
@@ -194,6 +198,6 @@ def project_state(
     return ProjectedState(
         machines=sorted(machines.values(), key=lambda item: item.machine_id),
         sessions=sorted(sessions.values(), key=lambda item: (item.machine_id, item.session_id)),
-        agents=sorted(agents.values(), key=lambda item: (item.session_id, item.agent_id)),
+        agents=sorted(agents.values(), key=lambda item: (item.machine_id, item.session_id, item.agent_id)),
         commands=sorted(commands, key=lambda item: (item.created_at, item.command_id)),
     )

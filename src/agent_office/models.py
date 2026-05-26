@@ -91,6 +91,7 @@ class RuntimeSession(BaseModel):
 
 class AgentInstance(BaseModel):
     agent_id: str
+    machine_id: str
     session_id: str
     parent_agent_id: str | None = None
     native_agent_id: str | None = None

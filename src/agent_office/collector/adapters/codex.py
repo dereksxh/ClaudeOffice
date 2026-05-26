@@ -5,7 +5,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from agent_office.collector.adapters.base import AdapterCommandResult
+from agent_office.collector.adapters.files import append_command_outbox, parse_timestamp, read_jsonl_records, record_payload
 from agent_office.models import Capability, EventRecord, EventType, RuntimeType
+from agent_office.models import ControlCommand
 
 
 CODEX_CAPABILITIES = [
@@ -69,3 +72,41 @@ def map_codex_hook_event(
         payload=event_payload,
         source_ref=f"codex:{hook_event_name}",
     )
+
+
+class CodexHookLogAdapter:
+    runtime_type = RuntimeType.CODEX
+
+    def __init__(
+        self,
+        machine_id: str,
+        hook_log_path: str | Path,
+        command_outbox_path: str | Path | None = None,
+    ) -> None:
+        self.machine_id = machine_id
+        self.hook_log_path = Path(hook_log_path)
+        self.command_outbox_path = Path(command_outbox_path) if command_outbox_path else None
+
+    def snapshot_events(self, now: datetime) -> list[EventRecord]:
+        events: list[EventRecord] = []
+        for record in read_jsonl_records(self.hook_log_path):
+            hook_event_name = record.get("hook_event_name") or record.get("event_name") or record.get("event")
+            if not isinstance(hook_event_name, str) or not hook_event_name:
+                continue
+            events.append(
+                map_codex_hook_event(
+                    machine_id=self.machine_id,
+                    hook_event_name=hook_event_name,
+                    payload=record_payload(record),
+                    timestamp=parse_timestamp(record.get("timestamp"), now),
+                )
+            )
+        return events
+
+    def apply_command(self, command: ControlCommand) -> AdapterCommandResult:
+        if command.target_machine_id != self.machine_id:
+            return AdapterCommandResult(False, "command targets a different machine")
+        if self.command_outbox_path is None:
+            return AdapterCommandResult(False, "codex command outbox is not configured")
+        append_command_outbox(self.command_outbox_path, self.runtime_type, command)
+        return AdapterCommandResult(True, f"{command.action.value} written to Codex command outbox")

@@ -1,5 +1,5 @@
 const TOKEN_KEY = "agentOfficeToken";
-const defaultToken = localStorage.getItem(TOKEN_KEY) || "dev-token";
+const authToken = resolveToken();
 
 let state = { machines: [], sessions: [], agents: [], commands: [] };
 let selectedSessionId = null;
@@ -21,9 +21,30 @@ const ACTIONS = [
 
 function headers() {
   return {
-    Authorization: `Bearer ${defaultToken}`,
+    Authorization: `Bearer ${authToken}`,
     "Content-Type": "application/json",
   };
+}
+
+function resolveToken() {
+  const params = new URLSearchParams(location.search);
+  const tokenFromUrl = params.get("token");
+  if (tokenFromUrl) {
+    localStorage.setItem(TOKEN_KEY, tokenFromUrl);
+    history.replaceState(null, "", location.pathname);
+    return tokenFromUrl;
+  }
+
+  const storedToken = localStorage.getItem(TOKEN_KEY);
+  if (storedToken) {
+    return storedToken;
+  }
+
+  const enteredToken = window.prompt("Agent Office token") || "";
+  if (enteredToken) {
+    localStorage.setItem(TOKEN_KEY, enteredToken);
+  }
+  return enteredToken;
 }
 
 function sessionKey(session) {
@@ -140,7 +161,9 @@ function renderDetail() {
     (command) =>
       command.target_session_id === session.session_id && command.target_machine_id === session.machine_id,
   );
-  const agents = state.agents.filter((agent) => agent.session_id === session.session_id);
+  const agents = state.agents.filter(
+    (agent) => agent.session_id === session.session_id && agent.machine_id === session.machine_id,
+  );
   sessionDetail.innerHTML = `
     <div class="detail-heading">
       <h2>${escapeHtml(session.project_name || session.session_id)}</h2>
@@ -245,7 +268,7 @@ function connectWebSocket() {
   }
 
   const wsProto = location.protocol === "https:" ? "wss" : "ws";
-  const nextSocket = new WebSocket(`${wsProto}://${location.host}/ws?token=${encodeURIComponent(defaultToken)}`);
+  const nextSocket = new WebSocket(`${wsProto}://${location.host}/ws?token=${encodeURIComponent(authToken)}`);
   socket = nextSocket;
 
   nextSocket.addEventListener("open", () => {

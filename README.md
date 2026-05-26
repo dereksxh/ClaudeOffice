@@ -32,10 +32,11 @@ python -m pytest
 ## Run central locally on port 8080
 
 ```bash
-AGENT_OFFICE_TOKEN=dev-token agent-office-server --host 0.0.0.0 --port 8080
+export AGENT_OFFICE_TOKEN="$(openssl rand -hex 32)"
+agent-office-server --host 127.0.0.1 --port 8080
 ```
 
-Open:
+Open the page and enter the token when prompted:
 
 ```text
 http://localhost:8080
@@ -44,10 +45,20 @@ http://localhost:8080
 ## Run the collector against local central
 
 ```bash
-AGENT_OFFICE_TOKEN=dev-token agent-office-collector --central-url http://127.0.0.1:8080
+agent-office-collector --central-url http://127.0.0.1:8080 \
+  --codex-hook-log ~/.agent-office/codex-hooks.jsonl \
+  --claude-hook-log ~/.agent-office/claude-hooks.jsonl \
+  --hermes-snapshot ~/.agent-office/hermes-snapshot.json \
+  --command-outbox-dir ~/.agent-office/commands
 ```
 
-The first collector implementation includes a fake adapter for end-to-end smoke testing. Codex, Claude Code, and Hermes adapters normalize runtime-specific signals into the same event schema.
+Codex and Claude Code adapters read JSONL hook logs, Hermes reads a JSON snapshot file, and all configured runtimes write accepted control commands to runtime-specific JSONL outboxes. Runtime-specific signals are normalized into the same event schema.
+
+For an end-to-end smoke test without real runtime files:
+
+```bash
+agent-office-collector --central-url http://127.0.0.1:8080 --enable-fake
+```
 
 ## Security model
 

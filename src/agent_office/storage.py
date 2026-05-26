@@ -209,6 +209,7 @@ def lease_commands(
 def complete_command(
     conn: sqlite3.Connection,
     command_id: str,
+    machine_id: str,
     status: CommandStatus,
     result_summary: str,
     completed_at: datetime,
@@ -218,8 +219,17 @@ def complete_command(
         UPDATE commands
         SET status = ?, result_summary = ?, completed_at = ?
         WHERE command_id = ?
+          AND target_machine_id = ?
+          AND status = ?
         """,
-        (status.value, result_summary, _dt(completed_at), command_id),
+        (
+            status.value,
+            result_summary,
+            _dt(completed_at),
+            command_id,
+            machine_id,
+            CommandStatus.LEASED.value,
+        ),
     )
     conn.commit()
     return cursor.rowcount == 1

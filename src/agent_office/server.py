@@ -44,6 +44,7 @@ class LeaseCommandsRequest(BaseModel):
 
 
 class CommandResultRequest(BaseModel):
+    machine_id: str
     status: Literal[CommandStatus.APPLIED, CommandStatus.FAILED]
     result_summary: str
 
@@ -127,16 +128,6 @@ def create_app(db_path: str | Path, api_token: str) -> FastAPI:
 
     @app.post("/api/commands", status_code=201, dependencies=[Depends(authorize)])
     async def post_command(request: CreateCommandRequest) -> ControlCommand:
-        command = ControlCommand(
-            command_id=f"cmd-{uuid4()}",
-            target_machine_id=request.target_machine_id,
-            target_session_id=request.target_session_id,
-            target_agent_id=request.target_agent_id,
-            action=request.action,
-            payload=request.payload,
-            actor=request.actor,
-            audit_metadata=request.audit_metadata,
-        )
         with get_conn() as conn:
             state = project_state(
                 list_events(conn),
@@ -151,10 +142,30 @@ def create_app(db_path: str | Path, api_token: str) -> FastAPI:
                 ),
                 None,
             )
-            if session is not None:
-                supported_actions = [capability.value for capability in session.capabilities]
-                if request.action.value not in supported_actions:
-                    raise HTTPException(status_code=403, detail="Action is not supported by target session")
+            if session is None:
+                raise HTTPException(status_code=404, detail="Target session not found")
+            if request.target_agent_id is not None and not any(
+                item.machine_id == request.target_machine_id
+                and item.session_id == request.target_session_id
+                and item.agent_id == request.target_agent_id
+                for item in state.agents
+            ):
+                raise HTTPException(status_code=404, detail="Target agent not found")
+            supported_actions = [capability.value for capability in session.capabilities]
+            if request.action.value not in supported_actions:
+                raise HTTPException(status_code=403, detail="Action is not supported by target session")
+            audit_metadata = dict(request.audit_metadata)
+            audit_metadata.setdefault("target_runtime_type", session.runtime_type.value)
+            command = ControlCommand(
+                command_id=f"cmd-{uuid4()}",
+                target_machine_id=request.target_machine_id,
+                target_session_id=request.target_session_id,
+                target_agent_id=request.target_agent_id,
+                action=request.action,
+                payload=request.payload,
+                actor=request.actor,
+                audit_metadata=audit_metadata,
+            )
             create_command(conn, command)
         await broadcast_state()
         return command
@@ -176,6 +187,7 @@ def create_app(db_path: str | Path, api_token: str) -> FastAPI:
             updated = complete_command(
                 conn,
                 command_id=command_id,
+                machine_id=request.machine_id,
                 status=request.status,
                 result_summary=request.result_summary,
                 completed_at=datetime.now(UTC),
@@ -207,7 +219,9 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--db-path", default=os.environ.get("AGENT_OFFICE_DB", "agent-office.sqlite"))
     args = parser.parse_args()
-    token = os.environ.get("AGENT_OFFICE_TOKEN", "dev-token")
+    token = os.environ.get("AGENT_OFFICE_TOKEN")
+    if not token:
+        raise SystemExit("AGENT_OFFICE_TOKEN is required")
     uvicorn.run(create_app(db_path=args.db_path, api_token=token), host=args.host, port=args.port)
 
 

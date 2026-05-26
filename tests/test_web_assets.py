@@ -40,6 +40,14 @@ def test_web_app_filters_detail_commands_by_session_and_machine() -> None:
 
     assert "command.target_session_id === session.session_id" in js
     assert "command.target_machine_id === session.machine_id" in js
+    assert "agent.session_id === session.session_id" in js
+    assert "agent.machine_id === session.machine_id" in js
+
+
+def test_web_app_does_not_embed_default_control_token() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "dev-token" not in js
 
 
 def test_web_styles_keep_dense_console_layout() -> None:

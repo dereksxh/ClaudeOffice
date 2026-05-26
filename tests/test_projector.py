@@ -307,3 +307,39 @@ def test_projector_sorts_commands_by_created_at_and_id() -> None:
     )
 
     assert [command.command_id for command in state.commands] == ["cmd-a", "cmd-b", "cmd-1"]
+
+
+def test_projector_keeps_agents_separate_across_machines() -> None:
+    events = [
+        EventRecord(
+            event_id="evt-a",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="shared-session",
+            agent_id="main",
+            event_type=EventType.AGENT_UPDATED,
+            timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+            payload={"progress_summary": "machine a progress"},
+        ),
+        EventRecord(
+            event_id="evt-b",
+            machine_id="machine-b",
+            runtime_type=RuntimeType.CODEX,
+            session_id="shared-session",
+            agent_id="main",
+            event_type=EventType.AGENT_UPDATED,
+            timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+            payload={"progress_summary": "machine b progress"},
+        ),
+    ]
+
+    state = project_state(events, [], now=datetime(2026, 5, 26, 3, 2, tzinfo=UTC))
+
+    assert [(agent.machine_id, agent.session_id, agent.agent_id) for agent in state.agents] == [
+        ("machine-a", "shared-session", "main"),
+        ("machine-b", "shared-session", "main"),
+    ]
+    assert [agent.progress_summary for agent in state.agents] == [
+        "machine a progress",
+        "machine b progress",
+    ]
