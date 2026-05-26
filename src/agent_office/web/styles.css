@@ -541,6 +541,91 @@ dd {
     0 0 0 2px rgba(79, 134, 191, 0.18);
 }
 
+.office-idle-summary {
+  display: grid;
+  align-content: center;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 118px;
+  border: 1px dashed rgba(142, 154, 168, 0.78);
+  background: rgba(255, 255, 255, 0.58);
+  color: #202a35;
+  padding: 12px;
+  text-align: left;
+}
+
+.office-idle-summary:hover,
+.office-idle-summary.selected {
+  border-color: rgba(79, 134, 191, 0.82);
+}
+
+.idle-stack {
+  position: relative;
+  display: block;
+  min-height: 48px;
+}
+
+.idle-stack span {
+  position: absolute;
+  bottom: 7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50% 50% 10px 10px;
+  background: #c9d2dc;
+  box-shadow: inset -3px -3px 0 rgba(61, 74, 90, 0.12);
+}
+
+.idle-stack span::before {
+  position: absolute;
+  top: -10px;
+  left: 5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f0c8a2;
+  content: "";
+}
+
+.idle-stack span:nth-child(1) {
+  left: 2px;
+  opacity: 0.86;
+  transform: rotate(-8deg);
+}
+
+.idle-stack span:nth-child(2) {
+  left: 18px;
+  opacity: 0.72;
+  transform: translateY(5px);
+}
+
+.idle-stack span:nth-child(3) {
+  left: 34px;
+  opacity: 0.58;
+  transform: rotate(8deg);
+}
+
+.office-idle-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.office-idle-copy strong,
+.office-idle-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.office-idle-copy strong {
+  font-size: 13px;
+}
+
+.office-idle-copy small {
+  color: #6b7785;
+  font-size: 11px;
+}
+
 .office-desk.working {
   animation: deskPulse 2200ms ease-in-out infinite;
   border-color: rgba(74, 151, 102, 0.54);

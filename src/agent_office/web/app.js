@@ -7,7 +7,9 @@ let activeView = "console";
 let socket = null;
 const officeRuntimeNodes = new Map();
 const officeDeskNodes = new Map();
+const officeIdleNodes = new Map();
 const RUNTIME_ORDER = ["codex", "hermes", "claude_code"];
+const PROMINENT_OFFICE_STATUSES = new Set(["working", "waiting_permission", "waiting_input", "blocked", "starting"]);
 const IDLE_ACTIVITIES = ["sleeping", "phone", "chatting"];
 
 const machineList = document.getElementById("machine-list");
@@ -62,6 +64,10 @@ function sessionKey(session) {
 
 function statusClass(status) {
   return String(status || "unknown").replaceAll("_", "-").replace(/[^a-z0-9-]/gi, "-").toLowerCase();
+}
+
+function isProminentOfficeSession(session) {
+  return PROMINENT_OFFICE_STATUSES.has(String(session.status || ""));
 }
 
 function runtimeInitial(runtimeType) {
@@ -249,7 +255,7 @@ function renderDetail() {
 function renderOffice() {
   const emptyOfficeNode = officeView.querySelector("[data-office-empty]");
   if (state.sessions.length === 0) {
-    removeStaleOfficeNodes(new Set(), new Set());
+    removeStaleOfficeNodes(new Set(), new Set(), new Set());
     if (!emptyOfficeNode) {
       const empty = emptyNode("No active desks");
       empty.dataset.officeEmpty = "true";
@@ -273,15 +279,22 @@ function renderOffice() {
 
   const activeRuntimeKeys = new Set();
   const activeDeskKeys = new Set();
+  const activeIdleKeys = new Set();
   Array.from(sessionsByRuntime.entries())
     .sort(([left], [right]) => runtimeSortKey(left).localeCompare(runtimeSortKey(right)))
     .forEach(([runtimeType, sessions], runtimeIndex) => {
+      const prominentSessions = sessions.filter(isProminentOfficeSession);
+      const idleSessions = sessions.filter((session) => session.status === "idle");
+      if (prominentSessions.length === 0 && idleSessions.length === 0) {
+        return;
+      }
+
       activeRuntimeKeys.add(runtimeType);
       const zone = ensureOfficeRuntimeNode(runtimeType);
-      updateOfficeRuntimeNode(zone, runtimeType, sessions);
+      updateOfficeRuntimeNode(zone, runtimeType, sessions, prominentSessions.length, idleSessions.length);
       zone.style.setProperty("--runtime-index", String(runtimeIndex));
 
-      sessions.forEach((session, sessionIndex) => {
+      prominentSessions.forEach((session, sessionIndex) => {
         const deskKey = sessionKey(session);
         activeDeskKeys.add(deskKey);
         const desk = ensureOfficeDeskNode(deskKey);
@@ -289,9 +302,22 @@ function renderOffice() {
         zone.querySelector(".office-desks").append(desk);
       });
 
+      if (idleSessions.length > 0) {
+        const idleKey = String(runtimeType);
+        activeIdleKeys.add(idleKey);
+        const idleNode = ensureOfficeIdleNode(idleKey);
+        updateOfficeIdleNode(idleNode, runtimeType, idleSessions);
+        zone.querySelector(".office-desks").append(idleNode);
+      }
+
       officeView.append(zone);
     });
-  removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys);
+  if (activeRuntimeKeys.size === 0 && !officeView.querySelector("[data-office-empty]")) {
+    const empty = emptyNode("No active desks");
+    empty.dataset.officeEmpty = "true";
+    officeView.append(empty);
+  }
+  removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys, activeIdleKeys);
 }
 
 function formatCompactNumber(value) {
@@ -447,11 +473,11 @@ function ensureOfficeRuntimeNode(runtimeType) {
   return node;
 }
 
-function updateOfficeRuntimeNode(node, runtimeType, sessions) {
+function updateOfficeRuntimeNode(node, runtimeType, sessions, prominentCount, idleCount) {
   const workingCount = sessions.filter((session) => session.status === "working").length;
   node.querySelector('[data-field="runtime-name"]').textContent = `${runtimeTypeLabel(runtimeType)} Area`;
   node.querySelector('[data-field="runtime-summary"]').textContent =
-    `${sessions.length} desks / ${workingCount} working`;
+    `${prominentCount} active / ${idleCount} idle / ${workingCount} working`;
   const mascot = node.querySelector('[data-field="runtime-mascot"]');
   mascot.className = `runtime-mascot ${mascotForRuntime(runtimeType)}`;
   mascot.textContent = runtimeType === "codex" ? "cow" : runtimeType === "hermes" ? "pony" : "agent";
@@ -527,11 +553,55 @@ function updateOfficeDeskNode(node, session, sessionIndex, machine) {
     `${runtimeInitial(session.runtime_type)} / ${machine?.hostname || session.machine_id} / ${session.status || "unknown"}`;
 }
 
-function removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys) {
+function ensureOfficeIdleNode(idleKey) {
+  if (officeIdleNodes.has(idleKey)) {
+    return officeIdleNodes.get(idleKey);
+  }
+
+  const node = document.createElement("button");
+  node.type = "button";
+  node.innerHTML = `
+    <span class="idle-stack" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </span>
+    <span class="office-idle-copy">
+      <strong data-field="idle-count"></strong>
+      <small data-field="idle-projects"></small>
+    </span>
+  `;
+  node.addEventListener("click", () => {
+    selectedSessionId = node.dataset.sessionKey;
+    render();
+  });
+  officeIdleNodes.set(idleKey, node);
+  return node;
+}
+
+function updateOfficeIdleNode(node, runtimeType, idleSessions) {
+  const selectedIdle = idleSessions.find((session) => sessionKey(session) === selectedSessionId);
+  const representativeSession = selectedIdle || idleSessions[0];
+  const selected = selectedIdle ? "selected" : "";
+  node.className = ["office-idle-summary", `runtime-${statusClass(runtimeType)}`, selected].filter(Boolean).join(" ");
+  node.dataset.sessionKey = sessionKey(representativeSession);
+  node.querySelector('[data-field="idle-count"]').textContent = `${idleSessions.length} idle desks`;
+  const projectNames = Array.from(new Set(idleSessions.map((session) => session.project_name).filter(Boolean)));
+  node.querySelector('[data-field="idle-projects"]').textContent =
+    projectNames.slice(0, 3).join(" / ") || runtimeTypeLabel(runtimeType);
+}
+
+function removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys, activeIdleKeys) {
   for (const [deskKey, node] of officeDeskNodes) {
     if (!activeDeskKeys.has(deskKey)) {
       node.remove();
       officeDeskNodes.delete(deskKey);
+    }
+  }
+  for (const [idleKey, node] of officeIdleNodes) {
+    if (!activeIdleKeys.has(idleKey)) {
+      node.remove();
+      officeIdleNodes.delete(idleKey);
     }
   }
   for (const [runtimeType, node] of officeRuntimeNodes) {

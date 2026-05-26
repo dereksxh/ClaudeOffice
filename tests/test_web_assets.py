@@ -91,6 +91,15 @@ def test_web_app_assigns_stable_idle_activities() -> None:
     assert "activity-${activity}" in js
 
 
+def test_web_app_collapses_idle_office_sessions() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "officeIdleNodes" in js
+    assert "isProminentOfficeSession" in js
+    assert "ensureOfficeIdleNode" in js
+    assert "updateOfficeIdleNode" in js
+
+
 def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
     js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 
@@ -127,6 +136,7 @@ def test_web_styles_include_animated_office_projection() -> None:
     assert ".office-floor" in css
     assert ".office-desk" in css
     assert ".office-runtime-zone" in css
+    assert ".office-idle-summary" in css
     assert ".desk-surface" in css
     assert ".mascot-cow" in css
     assert ".mascot-pony" in css
