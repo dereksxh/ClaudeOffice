@@ -322,6 +322,11 @@ def test_codex_session_directory_adapter_maps_recent_session_files(tmp_path) -> 
     assert events[0].payload["current_task"] == "Connect local Codex"
     assert events[0].payload["progress_summary"] == "Inspecting session files"
     assert events[0].payload["status"] == "working"
+    assert events[0].timestamp == datetime(2026, 5, 26, 3, 3, tzinfo=UTC)
+
+    next_events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 4, tzinfo=UTC))
+
+    assert next_events[0].event_id != events[0].event_id
 
 
 def test_hermes_snapshot_file_adapter_maps_snapshot_file(tmp_path) -> None:
@@ -387,3 +392,9 @@ def test_hermes_gateway_state_adapter_maps_root_and_profiles(tmp_path) -> None:
     assert events[1].payload["status"] == "working"
     assert events[1].payload["project_name"] == "Hermes luoluo"
     assert "pid=115239" in events[1].payload["progress_summary"]
+    assert events[0].timestamp == datetime(2026, 5, 26, 3, 2, tzinfo=UTC)
+    assert events[1].timestamp == datetime(2026, 5, 26, 3, 2, tzinfo=UTC)
+
+    next_events = adapter.snapshot_events(datetime(2026, 5, 26, 3, 3, tzinfo=UTC))
+
+    assert next_events[0].event_id != events[0].event_id

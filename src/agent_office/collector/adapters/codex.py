@@ -209,7 +209,7 @@ class CodexSessionDirectoryAdapter:
         project_name = Path(cwd).name if cwd else path.parent.name
         status = "working" if (now - latest_timestamp).total_seconds() <= self.active_ttl_seconds else "idle"
         stat = path.stat()
-        raw = f"{self.machine_id}:{session_id}:{path}:{stat.st_mtime_ns}:{stat.st_size}"
+        raw = f"{self.machine_id}:{session_id}:{path}:{stat.st_mtime_ns}:{stat.st_size}:{now.isoformat()}"
         return EventRecord(
             event_id="codex-session-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24],
             machine_id=self.machine_id,
@@ -217,7 +217,7 @@ class CodexSessionDirectoryAdapter:
             session_id=session_id,
             agent_id="main",
             event_type=EventType.SESSION_UPDATED,
-            timestamp=latest_timestamp,
+            timestamp=now,
             payload={
                 "cwd": cwd,
                 "project_name": project_name,

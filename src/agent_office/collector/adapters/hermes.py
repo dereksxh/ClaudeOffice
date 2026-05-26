@@ -125,9 +125,9 @@ class HermesGatewayStateAdapter:
             for name, platform in sorted(platforms.items())
             if isinstance(platform, dict) and platform.get("state") == "connected"
         ]
-        timestamp = parse_timestamp(state.get("updated_at"), now)
+        updated_at = parse_timestamp(state.get("updated_at"), now)
         pid = state.get("pid")
-        raw = f"{self.machine_id}:{profile}:{path}:{state.get('updated_at')}:{gateway_state}:{active_agents}"
+        raw = f"{self.machine_id}:{profile}:{path}:{state.get('updated_at')}:{gateway_state}:{active_agents}:{now.isoformat()}"
         return EventRecord(
             event_id="hermes-gateway-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24],
             machine_id=self.machine_id,
@@ -135,14 +135,15 @@ class HermesGatewayStateAdapter:
             session_id=f"hermes:{profile}",
             agent_id="main",
             event_type=EventType.SESSION_UPDATED,
-            timestamp=timestamp,
+            timestamp=now,
             payload={
                 "project_name": f"Hermes {profile}",
                 "status": status,
                 "current_task": f"{gateway_state} gateway",
                 "progress_summary": (
                     f"pid={pid}; active_agents={active_agents}; "
-                    f"platforms={', '.join(connected_platforms) or 'none'}"
+                    f"platforms={', '.join(connected_platforms) or 'none'}; "
+                    f"updated_at={updated_at.isoformat()}"
                 ),
                 "capabilities": [],
             },
