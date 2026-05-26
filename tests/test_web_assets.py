@@ -8,8 +8,11 @@ def test_web_app_contains_console_regions() -> None:
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
 
     assert 'id="machine-list"' in html
+    assert 'id="console-screen"' in html
     assert 'id="session-table"' in html
     assert 'id="session-detail"' in html
+    assert 'data-view-target="office"' in html
+    assert 'id="office-screen"' in html
     assert 'id="office-view"' in html
 
 
@@ -50,9 +53,27 @@ def test_web_app_does_not_embed_default_control_token() -> None:
     assert "dev-token" not in js
 
 
+def test_web_app_switches_between_console_and_office_views() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "setActiveView" in js
+    assert "[data-view-target]" in js
+    assert ".view-screen" in js
+
+
 def test_web_styles_keep_dense_console_layout() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
     assert ".app-shell" in css
     assert ".session-table" in css
     assert ".office-grid" in css
+
+
+def test_web_styles_include_animated_office_projection() -> None:
+    css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert ".office-building" in css
+    assert ".office-room" in css
+    assert ".office-room.working" in css
+    assert ".office-room.waiting-permission" in css
+    assert "@keyframes deskPulse" in css

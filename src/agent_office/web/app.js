@@ -3,6 +3,7 @@ const authToken = resolveToken();
 
 let state = { machines: [], sessions: [], agents: [], commands: [] };
 let selectedSessionId = null;
+let activeView = "console";
 let socket = null;
 
 const machineList = document.getElementById("machine-list");
@@ -12,6 +13,9 @@ const officeView = document.getElementById("office-view");
 const refreshButton = document.getElementById("refresh-button");
 const stateSummary = document.getElementById("state-summary");
 const connectionStatus = document.getElementById("connection-status");
+const activeViewTitle = document.getElementById("active-view-title");
+const viewButtons = Array.from(document.querySelectorAll("[data-view-target]"));
+const viewScreens = Array.from(document.querySelectorAll(".view-screen"));
 
 const ACTIONS = [
   { action: "append_prompt", label: "Append" },
@@ -55,6 +59,10 @@ function statusClass(status) {
   return String(status || "unknown").replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
 }
 
+function runtimeInitial(runtimeType) {
+  return String(runtimeType || "A").slice(0, 1).toUpperCase();
+}
+
 function formatTime(value) {
   if (!value) {
     return "-";
@@ -87,6 +95,21 @@ function setState(nextState) {
   }
 
   render();
+}
+
+function setActiveView(viewName) {
+  activeView = viewName === "office" ? "office" : "console";
+  viewButtons.forEach((button) => {
+    const isActive = button.dataset.viewTarget === activeView;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+  viewScreens.forEach((screen) => {
+    screen.classList.toggle("active", screen.id === `${activeView}-screen`);
+  });
+  if (activeViewTitle) {
+    activeViewTitle.textContent = activeView === "office" ? "Office" : "Console";
+  }
 }
 
 async function fetchState() {
@@ -192,21 +215,73 @@ function renderOffice() {
     return;
   }
 
-  state.sessions.forEach((session) => {
-    const desk = document.createElement("button");
-    desk.type = "button";
-    desk.className = `desk ${sessionKey(session) === selectedSessionId ? "selected" : ""}`;
-    desk.addEventListener("click", () => {
-      selectedSessionId = sessionKey(session);
-      render();
-    });
-    desk.innerHTML = `
-      <span class="status ${statusClass(session.status)}">${session.status || "unknown"}</span>
-      <strong>${escapeHtml(session.project_name || session.session_id)}</strong>
-      <small>${escapeHtml(session.runtime_type || "runtime")} / ${escapeHtml(session.machine_id)}</small>
-    `;
-    officeView.append(desk);
+  const sessionsByMachine = new Map();
+  state.machines.forEach((machine) => {
+    sessionsByMachine.set(machine.machine_id, { machine, sessions: [] });
   });
+  state.sessions.forEach((session) => {
+    if (!sessionsByMachine.has(session.machine_id)) {
+      sessionsByMachine.set(session.machine_id, {
+        machine: { machine_id: session.machine_id, hostname: session.machine_id, health: "unknown" },
+        sessions: [],
+      });
+    }
+    sessionsByMachine.get(session.machine_id).sessions.push(session);
+  });
+
+  Array.from(sessionsByMachine.values())
+    .filter((group) => group.sessions.length > 0)
+    .forEach((group, machineIndex) => {
+      const building = document.createElement("article");
+      building.className = `office-building ${statusClass(group.machine.health)}`;
+      building.style.setProperty("--building-delay", `${machineIndex * 90}ms`);
+
+      const floors = document.createElement("div");
+      floors.className = "office-floors";
+
+      group.sessions.forEach((session, sessionIndex) => {
+        const room = document.createElement("button");
+        room.type = "button";
+        room.className = [
+          "office-room",
+          statusClass(session.status),
+          sessionKey(session) === selectedSessionId ? "selected" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        room.style.setProperty("--desk-delay", `${sessionIndex * 70}ms`);
+        room.addEventListener("click", () => {
+          selectedSessionId = sessionKey(session);
+          render();
+        });
+        room.innerHTML = `
+          <span class="office-window-glow"></span>
+          <span class="agent-avatar">${escapeHtml(runtimeInitial(session.runtime_type))}</span>
+          <span class="agent-terminal" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span class="terminal-cursor"></span>
+          </span>
+          <span class="office-room-copy">
+            <strong>${escapeHtml(session.project_name || session.session_id)}</strong>
+            <small>${escapeHtml(session.runtime_type || "runtime")} / ${escapeHtml(session.status || "unknown")}</small>
+          </span>
+        `;
+        floors.append(room);
+      });
+
+      building.innerHTML = `
+        <header class="office-building-header">
+          <div>
+            <strong>${escapeHtml(group.machine.hostname || group.machine.machine_id)}</strong>
+            <small>${escapeHtml(group.machine.machine_id)}</small>
+          </div>
+          <span class="status ${statusClass(group.machine.health)}">${group.machine.health || "unknown"}</span>
+        </header>
+      `;
+      building.append(floors);
+      officeView.append(building);
+    });
 }
 
 function renderActions(session) {
@@ -342,6 +417,11 @@ refreshButton.addEventListener("click", () => {
   });
 });
 
+viewButtons.forEach((button) => {
+  button.addEventListener("click", () => setActiveView(button.dataset.viewTarget));
+});
+
+setActiveView(activeView);
 fetchState().catch((error) => {
   connectionStatus.textContent = error.message;
 });

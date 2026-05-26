@@ -22,32 +22,40 @@
       <main class="main-panel">
         <header class="toolbar">
           <div>
-            <h2>Console</h2>
+            <h2 id="active-view-title">Console</h2>
             <p id="state-summary">No state loaded</p>
           </div>
-          <button id="refresh-button" type="button">Refresh</button>
+          <div class="toolbar-actions">
+            <nav class="view-tabs" aria-label="Agent Office views">
+              <button class="view-tab active" type="button" data-view-target="console">Console</button>
+              <button class="view-tab" type="button" data-view-target="office">Office</button>
+            </nav>
+            <button id="refresh-button" type="button">Refresh</button>
+          </div>
         </header>
 
-        <div class="console-grid">
-          <section class="table-panel">
-            <table class="session-table">
-              <thead>
-                <tr>
-                  <th>Session</th>
-                  <th>Runtime</th>
-                  <th>Status</th>
-                  <th>Task</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="session-table"></tbody>
-            </table>
-          </section>
+        <section id="console-screen" class="view-screen active">
+          <div class="console-grid">
+            <section class="table-panel">
+              <table class="session-table">
+                <thead>
+                  <tr>
+                    <th>Session</th>
+                    <th>Runtime</th>
+                    <th>Status</th>
+                    <th>Task</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="session-table"></tbody>
+              </table>
+            </section>
 
-          <aside id="session-detail" class="detail-panel"></aside>
-        </div>
+            <aside id="session-detail" class="detail-panel"></aside>
+          </div>
+        </section>
 
-        <section>
+        <section id="office-screen" class="view-screen">
           <header class="section-header">
             <h2>Office</h2>
           </header>
