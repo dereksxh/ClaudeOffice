@@ -5,7 +5,7 @@ import os
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 import uvicorn
@@ -40,11 +40,11 @@ class CreateCommandRequest(BaseModel):
 
 class LeaseCommandsRequest(BaseModel):
     machine_id: str
-    limit: int = Field(default=10, gt=0)
+    limit: int = Field(default=10, gt=0, le=100)
 
 
 class CommandResultRequest(BaseModel):
-    status: CommandStatus
+    status: Literal[CommandStatus.APPLIED, CommandStatus.FAILED]
     result_summary: str
 
 
@@ -64,7 +64,7 @@ class WebSocketBroadcaster:
         for websocket in list(self._sockets):
             try:
                 await websocket.send_json(payload)
-            except RuntimeError:
+            except Exception:
                 disconnected.append(websocket)
         for websocket in disconnected:
             self.disconnect(websocket)
@@ -156,18 +156,23 @@ def create_app(db_path: str | Path, api_token: str) -> FastAPI:
     @app.post("/api/collector/commands/{command_id}/result", dependencies=[Depends(authorize)])
     async def post_command_result(command_id: str, request: CommandResultRequest) -> dict[str, str]:
         with get_conn() as conn:
-            complete_command(
+            updated = complete_command(
                 conn,
                 command_id=command_id,
                 status=request.status,
                 result_summary=request.result_summary,
                 completed_at=datetime.now(UTC),
             )
+        if not updated:
+            raise HTTPException(status_code=404, detail="Command not found")
         await broadcast_state()
         return {"status": "accepted"}
 
     @app.websocket("/ws")
     async def websocket_state(websocket: WebSocket) -> None:
+        if websocket.query_params.get("token") != api_token:
+            await websocket.close(code=1008)
+            return
         await broadcaster.connect(websocket)
         try:
             await websocket.send_json(state_message())

@@ -80,7 +80,7 @@ def test_command_can_be_created_leased_and_completed() -> None:
     assert [cmd.command_id for cmd in leased] == ["cmd-1"]
     assert leased[0].status == CommandStatus.LEASED
 
-    complete_command(
+    updated = complete_command(
         conn,
         command_id="cmd-1",
         status=CommandStatus.APPLIED,
@@ -88,9 +88,24 @@ def test_command_can_be_created_leased_and_completed() -> None:
         completed_at=datetime(2026, 5, 26, 3, 2, tzinfo=UTC),
     )
 
+    assert updated is True
     commands = list_commands(conn)
     assert commands[0].status == CommandStatus.APPLIED
     assert commands[0].result_summary == "report requested"
+
+
+def test_complete_command_reports_missing_command() -> None:
+    conn = make_conn()
+
+    updated = complete_command(
+        conn,
+        command_id="missing-command",
+        status=CommandStatus.APPLIED,
+        result_summary="not found",
+        completed_at=datetime(2026, 5, 26, 3, 2, tzinfo=UTC),
+    )
+
+    assert updated is False
 
 
 def test_lease_ignores_commands_for_other_machines() -> None:

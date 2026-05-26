@@ -1,9 +1,12 @@
 from datetime import UTC, datetime
 
+import anyio
+import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from agent_office.models import CommandAction, EventType, RuntimeType
-from agent_office.server import create_app
+from agent_office.server import WebSocketBroadcaster, create_app
 
 
 def test_ingest_event_and_get_projected_state(tmp_path) -> None:
@@ -51,7 +54,7 @@ def test_websocket_initial_state_message_is_wrapped(tmp_path) -> None:
     app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
     client = TestClient(app)
 
-    with client.websocket_connect("/ws") as websocket:
+    with client.websocket_connect("/ws?token=test-token") as websocket:
         message = websocket.receive_json()
 
     assert message["type"] == "state"
@@ -63,7 +66,7 @@ def test_websocket_broadcast_state_message_is_wrapped(tmp_path) -> None:
     app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
     client = TestClient(app)
 
-    with client.websocket_connect("/ws") as websocket:
+    with client.websocket_connect("/ws?token=test-token") as websocket:
         websocket.receive_json()
 
         response = client.post(
@@ -88,6 +91,15 @@ def test_websocket_broadcast_state_message_is_wrapped(tmp_path) -> None:
     assert message["type"] == "state"
     assert "state" in message
     assert message["state"]["sessions"][0]["session_id"] == "codex-1"
+
+
+def test_websocket_rejects_missing_token(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/ws"):
+            pass
 
 
 def test_create_lease_and_complete_command(tmp_path) -> None:
@@ -128,6 +140,51 @@ def test_create_lease_and_complete_command(tmp_path) -> None:
 
     state = client.get("/api/state", headers=headers).json()
     assert state["commands"][0]["status"] == "applied"
+
+
+def test_command_result_unknown_command_returns_404(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/collector/commands/missing-command/result",
+        headers={"Authorization": "Bearer test-token"},
+        json={"status": "applied", "result_summary": "not found"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_command_result_rejects_non_terminal_status(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/collector/commands/cmd-1/result",
+        headers={"Authorization": "Bearer test-token"},
+        json={"status": "leased", "result_summary": "still running"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_broadcast_disconnects_socket_after_send_error() -> None:
+    class BrokenSocket:
+        def __init__(self) -> None:
+            self.send_count = 0
+
+        async def send_json(self, payload: dict[str, object]) -> None:
+            self.send_count += 1
+            raise ValueError("socket closed")
+
+    broadcaster = WebSocketBroadcaster()
+    socket = BrokenSocket()
+    broadcaster._sockets.add(socket)  # type: ignore[arg-type]
+
+    anyio.run(broadcaster.broadcast, {"type": "state"})
+    anyio.run(broadcaster.broadcast, {"type": "state"})
+
+    assert socket.send_count == 1
 
 
 def test_static_index_is_served(tmp_path) -> None:

@@ -212,8 +212,8 @@ def complete_command(
     status: CommandStatus,
     result_summary: str,
     completed_at: datetime,
-) -> None:
-    conn.execute(
+) -> bool:
+    cursor = conn.execute(
         """
         UPDATE commands
         SET status = ?, result_summary = ?, completed_at = ?
@@ -222,3 +222,4 @@ def complete_command(
         (status.value, result_summary, _dt(completed_at), command_id),
     )
     conn.commit()
+    return cursor.rowcount == 1
