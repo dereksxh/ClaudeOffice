@@ -63,6 +63,30 @@ def test_claude_repeated_user_prompts_have_distinct_event_ids() -> None:
     assert first.event_id != second.event_id
 
 
+def test_claude_identical_user_prompts_at_different_times_have_distinct_event_ids() -> None:
+    first = map_claude_hook_event(
+        machine_id="machine-a",
+        hook_event_name="UserPromptSubmit",
+        payload={"session_id": "claude-1", "prompt": "continue"},
+        timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
+    second = map_claude_hook_event(
+        machine_id="machine-a",
+        hook_event_name="UserPromptSubmit",
+        payload={"session_id": "claude-1", "prompt": "continue"},
+        timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+    )
+    retry = map_claude_hook_event(
+        machine_id="machine-a",
+        hook_event_name="UserPromptSubmit",
+        payload={"session_id": "claude-1", "prompt": "continue"},
+        timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
+
+    assert first.event_id != second.event_id
+    assert first.event_id == retry.event_id
+
+
 def test_codex_tool_use_id_disambiguates_tool_events() -> None:
     first = map_codex_hook_event(
         machine_id="machine-a",

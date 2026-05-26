@@ -98,7 +98,8 @@ def map_claude_hook_event(
 
     discriminator = tool_use_id
     if tool_use_id == "unknown":
-        discriminator = str(payload.get("prompt") or payload.get("transcript_path") or "")
+        prompt_or_transcript = str(payload.get("prompt") or payload.get("transcript_path") or "")
+        discriminator = f"{prompt_or_transcript}:{timestamp.isoformat()}"
     else:
         discriminator = ""
 
