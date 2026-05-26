@@ -12,6 +12,7 @@ def _dt(value: datetime | None) -> str | None:
         return None
     if value.tzinfo is None:
         value = value.replace(tzinfo=UTC)
+    value = value.astimezone(UTC)
     return value.isoformat()
 
 
@@ -22,6 +23,7 @@ def _parse_dt(value: str | None) -> datetime | None:
 
 
 def init_db(conn: sqlite3.Connection) -> None:
+    conn.row_factory = sqlite3.Row
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS events (
@@ -158,39 +160,49 @@ def lease_commands(
     limit: int,
     lease_ttl: timedelta = timedelta(minutes=5),
 ) -> list[ControlCommand]:
+    if limit <= 0:
+        raise ValueError("limit must be greater than 0")
+
     cutoff = now - lease_ttl
-    rows = conn.execute(
-        """
-        SELECT * FROM commands
-        WHERE target_machine_id = ?
-          AND (
-            status = ?
-            OR (status = ? AND leased_at < ?)
-          )
-        ORDER BY created_at, command_id
-        LIMIT ?
-        """,
-        (
-            machine_id,
-            CommandStatus.QUEUED.value,
-            CommandStatus.LEASED.value,
-            _dt(cutoff),
-            limit,
-        ),
-    ).fetchall()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        rows = conn.execute(
+            """
+            SELECT * FROM commands
+            WHERE target_machine_id = ?
+              AND (
+                status = ?
+                OR (status = ? AND leased_at < ?)
+              )
+            ORDER BY created_at, command_id
+            LIMIT ?
+            """,
+            (
+                machine_id,
+                CommandStatus.QUEUED.value,
+                CommandStatus.LEASED.value,
+                _dt(cutoff),
+                limit,
+            ),
+        ).fetchall()
 
-    command_ids = [row["command_id"] for row in rows]
-    if command_ids:
-        conn.executemany(
-            "UPDATE commands SET status = ?, leased_at = ? WHERE command_id = ?",
-            [(CommandStatus.LEASED.value, _dt(now), command_id) for command_id in command_ids],
-        )
+        command_ids = [row["command_id"] for row in rows]
+        if command_ids:
+            conn.executemany(
+                "UPDATE commands SET status = ?, leased_at = ? WHERE command_id = ?",
+                [(CommandStatus.LEASED.value, _dt(now), command_id) for command_id in command_ids],
+            )
+
+        refreshed = [
+            conn.execute("SELECT * FROM commands WHERE command_id = ?", (command_id,)).fetchone()
+            for command_id in command_ids
+        ]
         conn.commit()
+    except Exception:
+        if conn.in_transaction:
+            conn.rollback()
+        raise
 
-    refreshed = [
-        conn.execute("SELECT * FROM commands WHERE command_id = ?", (command_id,)).fetchone()
-        for command_id in command_ids
-    ]
     return [_row_to_command(row) for row in refreshed if row is not None]
 
 

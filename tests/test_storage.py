@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 from agent_office.models import (
     CommandAction,
@@ -18,6 +18,16 @@ from agent_office.storage import (
     list_commands,
     list_events,
 )
+
+
+class TransactionRecordingConnection(sqlite3.Connection):
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self.statements: list[str] = []
+
+    def execute(self, sql: str, parameters: object = (), /) -> sqlite3.Cursor:
+        self.statements.append(sql)
+        return super().execute(sql, parameters)
 
 
 def make_conn() -> sqlite3.Connection:
@@ -136,3 +146,107 @@ def test_expired_leased_command_can_be_released() -> None:
 
     assert len(second_lease) == 1
     assert second_lease[0].command_id == "cmd-1"
+
+
+def test_lease_rejects_non_positive_limit() -> None:
+    conn = make_conn()
+    for command_id in ("cmd-1", "cmd-2", "cmd-3"):
+        create_command(
+            conn,
+            ControlCommand(
+                command_id=command_id,
+                target_machine_id="machine-a",
+                target_session_id="codex-1",
+                action=CommandAction.CONTINUE,
+                actor="derek",
+            ),
+        )
+
+    for limit in (0, -1):
+        try:
+            lease_commands(
+                conn,
+                machine_id="machine-a",
+                now=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+                limit=limit,
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"limit={limit} should raise ValueError")
+
+    assert [command.status for command in list_commands(conn)] == [
+        CommandStatus.QUEUED,
+        CommandStatus.QUEUED,
+        CommandStatus.QUEUED,
+    ]
+
+
+def test_init_db_sets_row_factory_for_read_models() -> None:
+    conn = sqlite3.connect(":memory:")
+    init_db(conn)
+    event = EventRecord(
+        event_id="evt-1",
+        machine_id="machine-a",
+        runtime_type=RuntimeType.CODEX,
+        event_type=EventType.SESSION_STARTED,
+        timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+        payload={"cwd": "/repo"},
+    )
+
+    assert insert_event(conn, event) is True
+    assert [stored.event_id for stored in list_events(conn)] == ["evt-1"]
+
+
+def test_events_are_ordered_by_utc_time_across_offsets() -> None:
+    conn = make_conn()
+    insert_event(
+        conn,
+        EventRecord(
+            event_id="evt-later",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            event_type=EventType.SESSION_STARTED,
+            timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+            payload={},
+        ),
+    )
+    insert_event(
+        conn,
+        EventRecord(
+            event_id="evt-earlier",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            event_type=EventType.SESSION_STARTED,
+            timestamp=datetime(2026, 5, 26, 3, 30, tzinfo=timezone(timedelta(hours=1))),
+            payload={},
+        ),
+    )
+
+    assert [event.event_id for event in list_events(conn)] == ["evt-earlier", "evt-later"]
+
+
+def test_lease_commands_starts_immediate_transaction_before_selecting() -> None:
+    conn = sqlite3.connect(":memory:", factory=TransactionRecordingConnection)
+    conn.row_factory = sqlite3.Row
+    init_db(conn)
+    create_command(
+        conn,
+        ControlCommand(
+            command_id="cmd-1",
+            target_machine_id="machine-a",
+            target_session_id="codex-1",
+            action=CommandAction.CONTINUE,
+            actor="derek",
+        ),
+    )
+    conn.statements.clear()
+
+    lease_commands(
+        conn,
+        machine_id="machine-a",
+        now=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+        limit=1,
+    )
+
+    assert conn.statements[0] == "BEGIN IMMEDIATE"
