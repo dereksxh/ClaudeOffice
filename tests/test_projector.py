@@ -109,3 +109,128 @@ def test_projector_includes_commands_in_state() -> None:
     state = project_state([], [command], now=datetime(2026, 5, 26, 3, 1, tzinfo=UTC))
 
     assert state.commands == [command]
+
+
+def test_session_updated_refreshes_metadata_and_capabilities() -> None:
+    events = [
+        EventRecord(
+            event_id="evt-session-started",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            event_type=EventType.SESSION_STARTED,
+            timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+            payload={
+                "cwd": "/old",
+                "project_name": "old-project",
+                "model": "gpt-4.1",
+                "current_task": "Old task",
+                "progress_summary": "Old progress",
+                "capabilities": ["append_prompt"],
+            },
+            source_ref="hook:start",
+        ),
+        EventRecord(
+            event_id="evt-session-updated",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            event_type=EventType.SESSION_UPDATED,
+            timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+            payload={
+                "cwd": "/new",
+                "project_name": "new-project",
+                "model": "gpt-5",
+                "current_task": "New task",
+                "progress_summary": "New progress",
+                "capabilities": ["request_report", "continue"],
+            },
+            source_ref="hook:update",
+        ),
+    ]
+
+    state = project_state(events, [], now=datetime(2026, 5, 26, 3, 2, tzinfo=UTC))
+
+    session = state.sessions[0]
+    assert session.cwd == "/new"
+    assert session.project_name == "new-project"
+    assert session.model == "gpt-5"
+    assert session.current_task == "New task"
+    assert session.progress_summary == "New progress"
+    assert session.capabilities == [Capability.REQUEST_REPORT, Capability.CONTINUE]
+    assert session.source_ref == "hook:update"
+
+
+def test_agent_stopped_does_not_complete_parent_session() -> None:
+    events = [
+        EventRecord(
+            event_id="evt-session-started",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            event_type=EventType.SESSION_STARTED,
+            timestamp=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+            payload={"project_name": "repo"},
+        ),
+        EventRecord(
+            event_id="evt-agent-updated",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            agent_id="agent-1",
+            event_type=EventType.AGENT_UPDATED,
+            timestamp=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+            payload={"task_description": "Inspect tests"},
+        ),
+        EventRecord(
+            event_id="evt-agent-stopped",
+            machine_id="machine-a",
+            runtime_type=RuntimeType.CODEX,
+            session_id="codex-1",
+            agent_id="agent-1",
+            event_type=EventType.AGENT_STOPPED,
+            timestamp=datetime(2026, 5, 26, 3, 2, tzinfo=UTC),
+            payload={"progress_summary": "Done inspecting tests"},
+        ),
+    ]
+
+    state = project_state(events, [], now=datetime(2026, 5, 26, 3, 3, tzinfo=UTC))
+
+    assert state.sessions[0].status == SessionStatus.WORKING
+    assert state.agents[0].status == SessionStatus.COMPLETED
+    assert state.agents[0].progress_summary == "Done inspecting tests"
+
+
+def test_projector_sorts_commands_by_created_at_and_id() -> None:
+    later = ControlCommand(
+        command_id="cmd-1",
+        target_machine_id="machine-a",
+        target_session_id="codex-1",
+        action=CommandAction.CONTINUE,
+        actor="derek",
+        created_at=datetime(2026, 5, 26, 3, 1, tzinfo=UTC),
+    )
+    same_time_second = ControlCommand(
+        command_id="cmd-b",
+        target_machine_id="machine-a",
+        target_session_id="codex-1",
+        action=CommandAction.REQUEST_REPORT,
+        actor="derek",
+        created_at=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
+    same_time_first = ControlCommand(
+        command_id="cmd-a",
+        target_machine_id="machine-a",
+        target_session_id="codex-1",
+        action=CommandAction.APPEND_PROMPT,
+        actor="derek",
+        created_at=datetime(2026, 5, 26, 3, 0, tzinfo=UTC),
+    )
+
+    state = project_state(
+        [],
+        [later, same_time_second, same_time_first],
+        now=datetime(2026, 5, 26, 3, 2, tzinfo=UTC),
+    )
+
+    assert [command.command_id for command in state.commands] == ["cmd-a", "cmd-b", "cmd-1"]

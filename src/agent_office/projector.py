@@ -85,27 +85,27 @@ def _update_session_from_event(session: RuntimeSession, event: EventRecord) -> R
     payload = event.payload
     update: dict[str, object] = {"last_event_at": event.timestamp}
 
-    if event.event_type == EventType.SESSION_STARTED:
-        update["status"] = SessionStatus.WORKING
+    if event.event_type in (EventType.SESSION_STARTED, EventType.SESSION_UPDATED):
+        if event.event_type == EventType.SESSION_STARTED:
+            update["status"] = SessionStatus.WORKING
+        else:
+            status = _status(payload.get("status"))
+            if status is not None:
+                update["status"] = status
         for field in ("cwd", "project_name", "model", "current_task", "progress_summary"):
             if field in payload:
                 update[field] = payload[field]
         if "capabilities" in payload:
             update["capabilities"] = _capabilities(payload.get("capabilities"))
-    elif event.event_type == EventType.SESSION_UPDATED:
-        status = _status(payload.get("status"))
-        if status is not None:
-            update["status"] = status
-        for field in ("progress_summary", "current_task"):
-            if field in payload:
-                update[field] = payload[field]
+        if event.source_ref is not None:
+            update["source_ref"] = event.source_ref
     elif event.event_type == EventType.TOOL_STARTED:
         update["status"] = SessionStatus.WORKING
         update["progress_summary"] = f"Running tool: {payload.get('tool_name') or 'unknown'}"
     elif event.event_type == EventType.WAITING_PERMISSION:
         update["status"] = SessionStatus.WAITING_PERMISSION
         update["progress_summary"] = payload.get("message") or "Waiting for permission"
-    elif event.event_type in (EventType.SESSION_STOPPED, EventType.AGENT_STOPPED):
+    elif event.event_type == EventType.SESSION_STOPPED:
         update["status"] = SessionStatus.COMPLETED
 
     return session.model_copy(update=update)
@@ -122,6 +122,10 @@ def _update_agent_from_session(
         "progress_summary": session.progress_summary,
         "capabilities": session.capabilities,
     }
+    if event.event_type == EventType.AGENT_STOPPED:
+        update["status"] = SessionStatus.COMPLETED
+    if "progress_summary" in payload:
+        update["progress_summary"] = payload["progress_summary"]
     field_map = {
         "parent_agent_id": "parent_agent_id",
         "native_agent_id": "native_agent_id",
