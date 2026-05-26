@@ -61,6 +61,14 @@ def test_web_app_switches_between_console_and_office_views() -> None:
     assert ".view-screen" in js
 
 
+def test_web_app_keeps_office_nodes_stable_between_state_updates() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "officeDeskNodes" in js
+    assert "removeStaleOfficeNodes" in js
+    assert "officeView.replaceChildren();" not in js
+
+
 def test_web_styles_keep_dense_console_layout() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
@@ -72,8 +80,10 @@ def test_web_styles_keep_dense_console_layout() -> None:
 def test_web_styles_include_animated_office_projection() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert ".office-building" in css
-    assert ".office-room" in css
-    assert ".office-room.working" in css
-    assert ".office-room.waiting-permission" in css
+    assert ".office-floor" in css
+    assert ".office-desk" in css
+    assert ".desk-surface" in css
+    assert ".agent-person.working" in css
+    assert ".agent-person.waiting-permission" in css
     assert "@keyframes deskPulse" in css
+    assert "@keyframes typingDot" in css

@@ -5,6 +5,8 @@ let state = { machines: [], sessions: [], agents: [], commands: [] };
 let selectedSessionId = null;
 let activeView = "console";
 let socket = null;
+const officeMachineNodes = new Map();
+const officeDeskNodes = new Map();
 
 const machineList = document.getElementById("machine-list");
 const sessionTable = document.getElementById("session-table");
@@ -209,10 +211,18 @@ function renderDetail() {
 }
 
 function renderOffice() {
-  officeView.replaceChildren();
+  const emptyOfficeNode = officeView.querySelector("[data-office-empty]");
   if (state.sessions.length === 0) {
-    officeView.append(emptyNode("No active desks"));
+    removeStaleOfficeNodes(new Set(), new Set());
+    if (!emptyOfficeNode) {
+      const empty = emptyNode("No active desks");
+      empty.dataset.officeEmpty = "true";
+      officeView.append(empty);
+    }
     return;
+  }
+  if (emptyOfficeNode) {
+    emptyOfficeNode.remove();
   }
 
   const sessionsByMachine = new Map();
@@ -229,59 +239,131 @@ function renderOffice() {
     sessionsByMachine.get(session.machine_id).sessions.push(session);
   });
 
+  const activeMachineKeys = new Set();
+  const activeDeskKeys = new Set();
   Array.from(sessionsByMachine.values())
     .filter((group) => group.sessions.length > 0)
     .forEach((group, machineIndex) => {
-      const building = document.createElement("article");
-      building.className = `office-building ${statusClass(group.machine.health)}`;
-      building.style.setProperty("--building-delay", `${machineIndex * 90}ms`);
-
-      const floors = document.createElement("div");
-      floors.className = "office-floors";
+      const machineKey = group.machine.machine_id;
+      activeMachineKeys.add(machineKey);
+      const zone = ensureOfficeMachineNode(machineKey);
+      updateOfficeMachineNode(zone, group.machine, group.sessions.length);
+      zone.style.setProperty("--machine-index", String(machineIndex));
 
       group.sessions.forEach((session, sessionIndex) => {
-        const room = document.createElement("button");
-        room.type = "button";
-        room.className = [
-          "office-room",
-          statusClass(session.status),
-          sessionKey(session) === selectedSessionId ? "selected" : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-        room.style.setProperty("--desk-delay", `${sessionIndex * 70}ms`);
-        room.addEventListener("click", () => {
-          selectedSessionId = sessionKey(session);
-          render();
-        });
-        room.innerHTML = `
-          <span class="office-window-glow"></span>
-          <span class="agent-avatar">${escapeHtml(runtimeInitial(session.runtime_type))}</span>
-          <span class="agent-terminal" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span class="terminal-cursor"></span>
-          </span>
-          <span class="office-room-copy">
-            <strong>${escapeHtml(session.project_name || session.session_id)}</strong>
-            <small>${escapeHtml(session.runtime_type || "runtime")} / ${escapeHtml(session.status || "unknown")}</small>
-          </span>
-        `;
-        floors.append(room);
+        const deskKey = sessionKey(session);
+        activeDeskKeys.add(deskKey);
+        const desk = ensureOfficeDeskNode(deskKey);
+        updateOfficeDeskNode(desk, session, sessionIndex);
+        zone.querySelector(".office-desks").append(desk);
       });
 
-      building.innerHTML = `
-        <header class="office-building-header">
-          <div>
-            <strong>${escapeHtml(group.machine.hostname || group.machine.machine_id)}</strong>
-            <small>${escapeHtml(group.machine.machine_id)}</small>
-          </div>
-          <span class="status ${statusClass(group.machine.health)}">${group.machine.health || "unknown"}</span>
-        </header>
-      `;
-      building.append(floors);
-      officeView.append(building);
+      officeView.append(zone);
     });
+  removeStaleOfficeNodes(activeMachineKeys, activeDeskKeys);
+}
+
+function ensureOfficeMachineNode(machineId) {
+  if (officeMachineNodes.has(machineId)) {
+    return officeMachineNodes.get(machineId);
+  }
+
+  const node = document.createElement("article");
+  node.className = "office-zone";
+  node.dataset.machineId = machineId;
+  node.innerHTML = `
+    <header class="office-zone-header">
+      <div>
+        <strong data-field="hostname"></strong>
+        <small data-field="machine-id"></small>
+      </div>
+      <span data-field="machine-health"></span>
+    </header>
+    <div class="office-desks"></div>
+  `;
+  officeMachineNodes.set(machineId, node);
+  return node;
+}
+
+function updateOfficeMachineNode(node, machine, sessionCount) {
+  node.querySelector('[data-field="hostname"]').textContent = machine.hostname || machine.machine_id;
+  node.querySelector('[data-field="machine-id"]').textContent = `${machine.machine_id} / ${sessionCount} desks`;
+  const health = node.querySelector('[data-field="machine-health"]');
+  health.className = `status ${statusClass(machine.health)}`;
+  health.textContent = machine.health || "unknown";
+}
+
+function ensureOfficeDeskNode(deskKey) {
+  if (officeDeskNodes.has(deskKey)) {
+    return officeDeskNodes.get(deskKey);
+  }
+
+  const node = document.createElement("button");
+  node.type = "button";
+  node.innerHTML = `
+    <span class="desk-scene">
+      <span class="agent-person" aria-hidden="true">
+        <span class="agent-head"></span>
+        <span class="agent-body"></span>
+      </span>
+      <span class="desk-surface" aria-hidden="true">
+        <span class="desk-monitor"></span>
+        <span class="desk-keyboard"></span>
+        <span class="typing-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </span>
+      <span class="desk-chair" aria-hidden="true"></span>
+    </span>
+    <span class="office-desk-copy">
+      <strong data-field="project"></strong>
+      <small data-field="runtime"></small>
+    </span>
+  `;
+  node.addEventListener("click", () => {
+    selectedSessionId = node.dataset.sessionKey;
+    render();
+  });
+  officeDeskNodes.set(deskKey, node);
+  return node;
+}
+
+function updateOfficeDeskNode(node, session, sessionIndex) {
+  const deskKey = sessionKey(session);
+  const status = statusClass(session.status);
+  const selected = deskKey === selectedSessionId ? "selected" : "";
+  const nextClassName = ["office-desk", status, selected].filter(Boolean).join(" ");
+  if (node.className !== nextClassName) {
+    node.className = nextClassName;
+  }
+  node.dataset.sessionKey = deskKey;
+  node.style.setProperty("--desk-index", String(sessionIndex));
+
+  const person = node.querySelector(".agent-person");
+  const personClassName = ["agent-person", status].join(" ");
+  if (person.className !== personClassName) {
+    person.className = personClassName;
+  }
+  node.querySelector('[data-field="project"]').textContent = session.project_name || session.session_id;
+  node.querySelector('[data-field="runtime"]').textContent =
+    `${runtimeInitial(session.runtime_type)} / ${session.runtime_type || "runtime"} / ${session.status || "unknown"}`;
+}
+
+function removeStaleOfficeNodes(activeMachineKeys, activeDeskKeys) {
+  for (const [deskKey, node] of officeDeskNodes) {
+    if (!activeDeskKeys.has(deskKey)) {
+      node.remove();
+      officeDeskNodes.delete(deskKey);
+    }
+  }
+  for (const [machineKey, node] of officeMachineNodes) {
+    if (!activeMachineKeys.has(machineKey)) {
+      node.remove();
+      officeMachineNodes.delete(machineKey);
+    }
+  }
 }
 
 function renderActions(session) {
