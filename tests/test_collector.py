@@ -5,6 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from agent_office.collector.adapters.base import AdapterCommandResult
 from agent_office.collector.adapters.claude_code import ClaudeHookLogAdapter
 from agent_office.collector.adapters.codex import CodexHookLogAdapter, CodexSessionDirectoryAdapter
 from agent_office.collector.adapters.fake import FakeAdapter
@@ -67,6 +68,36 @@ def test_collector_posts_events_to_central(tmp_path) -> None:
     ).json()
     assert state["machines"][0]["machine_id"] == "machine-a"
     assert state["sessions"][0]["session_id"] == "fake-session"
+
+
+def test_collector_posts_machine_heartbeat_for_read_only_adapters(tmp_path) -> None:
+    class ReadOnlyAdapter:
+        machine_id = "machine-a"
+        runtime_type = RuntimeType.CODEX
+
+        def snapshot_events(self, now):
+            return []
+
+        def apply_command(self, command):
+            return AdapterCommandResult(False, "read-only")
+
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    test_client = TestClient(app)
+    collector_client = CollectorClient.for_test_client(test_client, token="test-token")
+
+    collect_once(
+        client=collector_client,
+        adapters=[ReadOnlyAdapter()],
+        now=datetime.now(UTC),
+    )
+
+    state = test_client.get(
+        "/api/state",
+        headers={"Authorization": "Bearer test-token"},
+    ).json()
+    assert state["machines"][0]["machine_id"] == "machine-a"
+    assert state["machines"][0]["health"] == "online"
+    assert state["machines"][0]["runtime_inventory"] == ["codex"]
 
 
 def test_collector_leases_and_applies_supported_command(tmp_path) -> None:

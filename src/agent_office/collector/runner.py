@@ -13,7 +13,7 @@ from agent_office.collector.adapters.codex import CodexHookLogAdapter, CodexSess
 from agent_office.collector.adapters.fake import FakeAdapter
 from agent_office.collector.adapters.hermes import HermesGatewayStateAdapter, HermesSnapshotFileAdapter
 from agent_office.collector.client import CollectorClient
-from agent_office.models import CommandStatus, ControlCommand
+from agent_office.models import CommandStatus, ControlCommand, EventRecord, EventType
 
 
 def _truthy(value: str | None) -> bool:
@@ -83,8 +83,38 @@ def _apply_command(command: ControlCommand, adapters: list[RuntimeAdapter]) -> A
     return candidates[0].apply_command(command)
 
 
+def _heartbeat_events(adapters: list[RuntimeAdapter], now: datetime) -> list[EventRecord]:
+    by_machine: dict[str, list[RuntimeAdapter]] = {}
+    for adapter in adapters:
+        by_machine.setdefault(adapter.machine_id, []).append(adapter)
+
+    events: list[EventRecord] = []
+    for machine_id, machine_adapters in sorted(by_machine.items()):
+        runtime_inventory = sorted({adapter.runtime_type.value for adapter in machine_adapters})
+        hostname = str(getattr(machine_adapters[0], "hostname", machine_id))
+        events.append(
+            EventRecord(
+                event_id=f"{machine_id}:collector-heartbeat:{int(now.timestamp())}",
+                machine_id=machine_id,
+                runtime_type=machine_adapters[0].runtime_type,
+                event_type=EventType.MACHINE_HEARTBEAT,
+                timestamp=now,
+                payload={
+                    "hostname": hostname,
+                    "collector_version": "0.1.0",
+                    "runtime_inventory": runtime_inventory,
+                },
+                source_ref="collector:heartbeat",
+            )
+        )
+    return events
+
+
 def collect_once(client: CollectorClient, adapters: list[RuntimeAdapter], now: datetime | None = None) -> None:
     now = now or datetime.now(UTC)
+    for event in _heartbeat_events(adapters, now):
+        client.post_event(event)
+
     for adapter in adapters:
         for event in adapter.snapshot_events(now):
             client.post_event(event)
