@@ -361,3 +361,14 @@ def test_static_office_assets_are_served(tmp_path) -> None:
     assert response.status_code == 200
     assert "calf" in response.text
     assert "pony" in response.text
+
+
+def test_static_office_scene_manifest_is_served(tmp_path) -> None:
+    app = create_app(db_path=tmp_path / "agent-office.sqlite", api_token="test-token")
+    client = TestClient(app)
+
+    response = client.get("/assets/office-scene-v2/scene-manifest.json")
+
+    assert response.status_code == 200
+    assert "working-back" in response.text
+    assert "walkableAreas" in response.text

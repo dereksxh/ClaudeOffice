@@ -107,8 +107,8 @@ def test_web_app_assigns_independent_office_behaviors() -> None:
 
     assert "officeBehaviorState" in js
     assert "officeIdlePlans" in js
-    assert "officeDeskPosition" in js
-    assert "officeLoungePosition" in js
+    assert "officeDeskAnchorForSession" in js
+    assert "officeIdleAnchorForPlan" in js
     assert "chatMembers" in js
     assert "idleSessions.length >= 2" in js
     assert "walking-to-desk" in js
@@ -118,19 +118,22 @@ def test_web_app_assigns_independent_office_behaviors() -> None:
     assert "@keyframes actorWalkToDesk" in css
 
 
-def test_web_app_uses_background_office_anchor_map() -> None:
+def test_web_app_uses_manifest_driven_office_scene() -> None:
     js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    assert "OFFICE_DESK_ANCHORS" in js
-    assert "OFFICE_LOUNGE_ANCHORS" in js
-    assert "const anchors = OFFICE_DESK_ANCHORS[runtimeType]" in js
-    assert "{ x: 36.8, y: 18.7 }" in js
-    assert "{ x: 76.5, y: 53.8 }" in js
-    assert "{ place: \"lounge\", label: \"沙发区\", x: 9.6, y: 55.4 }" in js
-    assert "aspect-ratio: 16 / 9;" in css
-    assert ".generated-desk" in css
-    assert "display: none;" in css
+    assert '"/assets/office-scene-v2/scene-manifest.json"' in js
+    assert "officeSceneManifestPromise" in js
+    assert "officeSceneFurnitureNodes" in js
+    assert "officeSceneDoorNodes" in js
+    assert "renderOfficeSceneBase" in js
+    assert "renderOfficeSceneFurniture" in js
+    assert "renderOfficeSceneDoors" in js
+    assert "working-back" in js
+    assert ".office-scene-base" in css
+    assert ".office-scene-prop" in css
+    assert ".office-scene-door" in css
+    assert ".generated-agent.asset-working-back" in css
 
 
 def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
@@ -142,24 +145,23 @@ def test_web_app_normalizes_status_underscores_for_css_classes() -> None:
 def test_web_app_uses_generated_office_sprite_assets() -> None:
     js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
-    asset_dir = WEB_DIR / "assets" / "office"
+    asset_dir = WEB_DIR / "assets" / "office-scene-v2"
 
-    assert (asset_dir / "manifest.json").is_file()
-    assert (asset_dir / "backgrounds" / "office.png").is_file()
-    assert (asset_dir / "props" / "workstation-desk.png").is_file()
+    assert (asset_dir / "scene-manifest.json").is_file()
+    assert (asset_dir / "background" / "base-office.png").is_file()
+    assert (asset_dir / "furniture" / "work-desk.png").is_file()
+    assert (asset_dir / "doors" / "lounge-open.png").is_file()
+    assert (asset_dir / "doors" / "restroom-closed.png").is_file()
     for character in ("calf", "pony"):
-        for activity in ("typing", "waiting", "idle-sleep", "idle-phone", "idle-chat", "stand"):
+        for activity in ("working-back", "walk", "waiting", "idle-sleep", "idle-phone", "idle-chat", "stand"):
             assert (asset_dir / "characters" / character / f"{activity}-sheet-256.png").is_file()
 
     assert "officeSpriteCharacter" in js
     assert "officeSpriteActivity" in js
     assert "generated-agent" in js
-    assert "generated-desk" in js
     assert "asset-idle-phone" in css
-    assert "/assets/office/backgrounds/office.png" in css
-    assert "/assets/office/props/workstation-desk.png" in css
-    assert "calf/typing-sheet-256.png" in css
-    assert "pony/typing-sheet-256.png" in css
+    assert "working-back-sheet-256.png" in css
+    assert "/assets/office-scene-v2/background/base-office.png" in css
     assert "@keyframes officeSpritePlay" in css
 
 
@@ -196,9 +198,12 @@ def test_web_styles_include_animated_office_projection() -> None:
     assert ".office-stage-label" in css
     assert "border: 0;" in css
     assert "box-shadow: none;" in css
+    assert ".office-scene-base" in css
+    assert ".office-scene-prop" in css
+    assert ".office-scene-door" in css
     assert ".mascot-cow" in css
     assert ".mascot-pony" in css
-    assert ".generated-agent.asset-typing" in css
+    assert ".generated-agent.asset-working-back" in css
     assert ".generated-agent.asset-idle-sleep" in css
     assert ".generated-agent.asset-idle-phone" in css
     assert ".generated-agent.asset-idle-chat" in css

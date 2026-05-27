@@ -1236,6 +1236,313 @@ dd {
   white-space: nowrap;
 }
 
+.office-floor {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius);
+  background: #dde6ef;
+  box-shadow: inset 0 0 44px rgba(45, 57, 72, 0.08);
+  min-height: 620px;
+  padding: 0;
+}
+
+.office-floor .empty {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 3200;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+  padding: 9px 12px;
+}
+
+.office-scene-base {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.04)),
+    url("/assets/office-scene-v2/background/base-office.png") center / cover no-repeat;
+  pointer-events: none;
+}
+
+.office-scene-prop,
+.office-scene-door {
+  position: absolute;
+  display: block;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.office-runtime-zone {
+  position: absolute;
+  top: var(--runtime-y, 24px);
+  left: var(--runtime-x, 24px);
+  z-index: 3000;
+  display: block;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.office-zone-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  max-width: max-content;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  color: #17212c;
+  padding: 7px 10px 8px;
+  text-shadow: none;
+  backdrop-filter: blur(6px);
+}
+
+.office-zone-header div {
+  display: grid;
+  gap: 2px;
+}
+
+.office-zone-header strong {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.office-zone-header small {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.runtime-mascot {
+  color: #526170;
+  font-size: 10px;
+  line-height: 1;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.runtime-mascot.mascot-cow {
+  color: #7a5b36;
+}
+
+.runtime-mascot.mascot-pony {
+  color: #4c6d9a;
+}
+
+.office-desk {
+  position: absolute;
+  top: var(--actor-y);
+  left: var(--actor-x);
+  display: block;
+  width: 204px;
+  height: 216px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #202a35;
+  padding: 0;
+  text-align: left;
+  transform: translate(-50%, -100%);
+}
+
+.office-desk:hover {
+  border-color: transparent;
+}
+
+.office-desk.walking-to-desk {
+  animation: actorWalkToDesk 2200ms ease-out both;
+}
+
+.office-desk.selected .office-desk-copy {
+  box-shadow: 0 0 0 2px rgba(79, 134, 191, 0.24), 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.office-desk.waiting-permission,
+.office-desk.waiting {
+  border-color: transparent;
+}
+
+.office-desk.lost,
+.office-desk.failed,
+.office-desk.offline {
+  opacity: 0.58;
+}
+
+.office-actor {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: var(--actor-z, 1000);
+  width: 128px;
+  height: 128px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.generated-agent {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 128px;
+  height: 128px;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  background-size: 512px 128px;
+  filter: drop-shadow(0 10px 10px rgba(25, 35, 45, 0.18));
+  transform-origin: center bottom;
+  animation: officeSpritePlay 720ms steps(4) infinite;
+}
+
+.office-desk:hover .generated-agent,
+.office-desk.selected .generated-agent {
+  filter:
+    drop-shadow(0 12px 12px rgba(25, 35, 45, 0.2))
+    drop-shadow(0 0 12px rgba(255, 255, 255, 0.38));
+}
+
+.generated-agent.asset-working-back {
+  background-position: 0 0;
+}
+
+.generated-agent.asset-idle-sleep {
+  transform: translate(-4px, 6px) rotate(-6deg);
+}
+
+.generated-agent.asset-idle-phone,
+.generated-agent.asset-idle-chat,
+.generated-agent.asset-stand,
+.generated-agent.asset-waiting,
+.generated-agent.asset-walk,
+.generated-agent.asset-working-back {
+  transform: translateY(0);
+}
+
+.office-desk.runtime-codex.working .generated-agent,
+.office-desk.runtime-hermes.working .generated-agent {
+  filter:
+    drop-shadow(0 10px 10px rgba(25, 35, 45, 0.18))
+    drop-shadow(0 0 14px rgba(74, 151, 102, 0.26));
+}
+
+.office-place-lounge .office-desk-copy {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.office-desk-copy {
+  position: absolute;
+  left: 50%;
+  bottom: 136px;
+  z-index: var(--label-z, 3000);
+  display: grid;
+  gap: 3px;
+  width: 176px;
+  min-width: 0;
+  transform: translateX(-50%);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 18px rgba(26, 39, 54, 0.12);
+  padding: 7px 9px;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+.office-desk-copy strong,
+.office-desk-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.office-desk-copy strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.office-desk-copy small {
+  color: #6b7785;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.generated-agent.asset-calf.asset-idle-chat {
+  background-image: url("/assets/office-scene-v2/characters/calf/idle-chat-sheet-256.png");
+}
+
+.generated-agent.asset-calf.asset-idle-phone {
+  background-image: url("/assets/office-scene-v2/characters/calf/idle-phone-sheet-256.png");
+}
+
+.generated-agent.asset-calf.asset-idle-sleep {
+  background-image: url("/assets/office-scene-v2/characters/calf/idle-sleep-sheet-256.png");
+}
+
+.generated-agent.asset-calf.asset-sit {
+  background-image: url("/assets/office-scene-v2/characters/calf/sit-sheet-256.png");
+}
+
+.generated-agent.asset-calf.asset-stand {
+  background-image: url("/assets/office-scene-v2/characters/calf/stand-sheet-256.png");
+}
+
+.generated-agent.asset-calf.asset-typing,
+.generated-agent.asset-calf.asset-working-back {
+  background-image: url("/assets/office-scene-v2/characters/calf/working-back-sheet-256.png");
+}
+
+.generated-agent.asset-calf.asset-waiting {
+  background-image: url("/assets/office-scene-v2/characters/calf/waiting-sheet-256.png");
+}
+
+.generated-agent.asset-calf.asset-walk {
+  background-image: url("/assets/office-scene-v2/characters/calf/walk-sheet-256.png");
+}
+
+.generated-agent.asset-pony.asset-idle-chat {
+  background-image: url("/assets/office-scene-v2/characters/pony/idle-chat-sheet-256.png");
+}
+
+.generated-agent.asset-pony.asset-idle-phone {
+  background-image: url("/assets/office-scene-v2/characters/pony/idle-phone-sheet-256.png");
+}
+
+.generated-agent.asset-pony.asset-idle-sleep {
+  background-image: url("/assets/office-scene-v2/characters/pony/idle-sleep-sheet-256.png");
+}
+
+.generated-agent.asset-pony.asset-sit {
+  background-image: url("/assets/office-scene-v2/characters/pony/sit-sheet-256.png");
+}
+
+.generated-agent.asset-pony.asset-stand {
+  background-image: url("/assets/office-scene-v2/characters/pony/stand-sheet-256.png");
+}
+
+.generated-agent.asset-pony.asset-typing,
+.generated-agent.asset-pony.asset-working-back {
+  background-image: url("/assets/office-scene-v2/characters/pony/working-back-sheet-256.png");
+}
+
+.generated-agent.asset-pony.asset-waiting {
+  background-image: url("/assets/office-scene-v2/characters/pony/waiting-sheet-256.png");
+}
+
+.generated-agent.asset-pony.asset-walk {
+  background-image: url("/assets/office-scene-v2/characters/pony/walk-sheet-256.png");
+}
+
 @keyframes deskPulse {
   0%,
   100% {

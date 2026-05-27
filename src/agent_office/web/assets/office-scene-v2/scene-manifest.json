@@ -1,0 +1,1181 @@
+{
+  "version": 2,
+  "canvas": {
+    "width": 1920,
+    "height": 1080
+  },
+  "assets": {
+    "background": "background/base-office.png",
+    "furniture": {
+      "workDesk": "furniture/work-desk.png",
+      "chair": "furniture/chair.png",
+      "plant": "furniture/plant.png",
+      "sofa": "furniture/sofa.png",
+      "meetingTable": "furniture/meeting-table.png",
+      "bookshelf": "furniture/bookshelf.png"
+    },
+    "doors": {
+      "restroom": {
+        "closed": "doors/restroom-closed.png",
+        "open": "doors/restroom-open.png"
+      },
+      "lounge": {
+        "closed": "doors/lounge-closed.png",
+        "open": "doors/lounge-open.png"
+      }
+    }
+  },
+  "furniture": [
+    {
+      "id": "desk-01",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 560,
+      "y": 170,
+      "width": 360,
+      "height": 267,
+      "zIndex": 410,
+      "collisionBox": {
+        "x": 580,
+        "y": 225,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 740,
+          "y": 465,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 740,
+          "y": 500,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-01",
+      "asset": "chair",
+      "type": "chair",
+      "x": 665,
+      "y": 375,
+      "width": 150,
+      "height": 243,
+      "zIndex": 510,
+      "collisionBox": {
+        "x": 685,
+        "y": 430,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 740,
+          "y": 490,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-02",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 835,
+      "y": 170,
+      "width": 360,
+      "height": 267,
+      "zIndex": 410,
+      "collisionBox": {
+        "x": 855,
+        "y": 225,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1015,
+          "y": 465,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1015,
+          "y": 500,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-02",
+      "asset": "chair",
+      "type": "chair",
+      "x": 940,
+      "y": 375,
+      "width": 150,
+      "height": 243,
+      "zIndex": 510,
+      "collisionBox": {
+        "x": 960,
+        "y": 430,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1015,
+          "y": 490,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-03",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 1110,
+      "y": 170,
+      "width": 360,
+      "height": 267,
+      "zIndex": 410,
+      "collisionBox": {
+        "x": 1130,
+        "y": 225,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1290,
+          "y": 465,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1290,
+          "y": 500,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-03",
+      "asset": "chair",
+      "type": "chair",
+      "x": 1215,
+      "y": 375,
+      "width": 150,
+      "height": 243,
+      "zIndex": 510,
+      "collisionBox": {
+        "x": 1235,
+        "y": 430,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1290,
+          "y": 490,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-04",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 1385,
+      "y": 170,
+      "width": 360,
+      "height": 267,
+      "zIndex": 410,
+      "collisionBox": {
+        "x": 1405,
+        "y": 225,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1565,
+          "y": 465,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1565,
+          "y": 500,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-04",
+      "asset": "chair",
+      "type": "chair",
+      "x": 1490,
+      "y": 375,
+      "width": 150,
+      "height": 243,
+      "zIndex": 510,
+      "collisionBox": {
+        "x": 1510,
+        "y": 430,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1565,
+          "y": 490,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-05",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 560,
+      "y": 390,
+      "width": 360,
+      "height": 267,
+      "zIndex": 630,
+      "collisionBox": {
+        "x": 580,
+        "y": 445,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 740,
+          "y": 685,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 740,
+          "y": 720,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-05",
+      "asset": "chair",
+      "type": "chair",
+      "x": 665,
+      "y": 595,
+      "width": 150,
+      "height": 243,
+      "zIndex": 730,
+      "collisionBox": {
+        "x": 685,
+        "y": 650,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 740,
+          "y": 710,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-06",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 835,
+      "y": 390,
+      "width": 360,
+      "height": 267,
+      "zIndex": 630,
+      "collisionBox": {
+        "x": 855,
+        "y": 445,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1015,
+          "y": 685,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1015,
+          "y": 720,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-06",
+      "asset": "chair",
+      "type": "chair",
+      "x": 940,
+      "y": 595,
+      "width": 150,
+      "height": 243,
+      "zIndex": 730,
+      "collisionBox": {
+        "x": 960,
+        "y": 650,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1015,
+          "y": 710,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-07",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 1110,
+      "y": 390,
+      "width": 360,
+      "height": 267,
+      "zIndex": 630,
+      "collisionBox": {
+        "x": 1130,
+        "y": 445,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1290,
+          "y": 685,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1290,
+          "y": 720,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-07",
+      "asset": "chair",
+      "type": "chair",
+      "x": 1215,
+      "y": 595,
+      "width": 150,
+      "height": 243,
+      "zIndex": 730,
+      "collisionBox": {
+        "x": 1235,
+        "y": 650,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1290,
+          "y": 710,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-08",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 1385,
+      "y": 390,
+      "width": 360,
+      "height": 267,
+      "zIndex": 630,
+      "collisionBox": {
+        "x": 1405,
+        "y": 445,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1565,
+          "y": 685,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1565,
+          "y": 720,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-08",
+      "asset": "chair",
+      "type": "chair",
+      "x": 1490,
+      "y": 595,
+      "width": 150,
+      "height": 243,
+      "zIndex": 730,
+      "collisionBox": {
+        "x": 1510,
+        "y": 650,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1565,
+          "y": 710,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-09",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 560,
+      "y": 640,
+      "width": 360,
+      "height": 267,
+      "zIndex": 880,
+      "collisionBox": {
+        "x": 580,
+        "y": 695,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 740,
+          "y": 935,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 740,
+          "y": 970,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-09",
+      "asset": "chair",
+      "type": "chair",
+      "x": 665,
+      "y": 845,
+      "width": 150,
+      "height": 243,
+      "zIndex": 980,
+      "collisionBox": {
+        "x": 685,
+        "y": 900,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 740,
+          "y": 960,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-10",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 835,
+      "y": 640,
+      "width": 360,
+      "height": 267,
+      "zIndex": 880,
+      "collisionBox": {
+        "x": 855,
+        "y": 695,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1015,
+          "y": 935,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1015,
+          "y": 970,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-10",
+      "asset": "chair",
+      "type": "chair",
+      "x": 940,
+      "y": 845,
+      "width": 150,
+      "height": 243,
+      "zIndex": 980,
+      "collisionBox": {
+        "x": 960,
+        "y": 900,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1015,
+          "y": 960,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-11",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 1110,
+      "y": 640,
+      "width": 360,
+      "height": 267,
+      "zIndex": 880,
+      "collisionBox": {
+        "x": 1130,
+        "y": 695,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1290,
+          "y": 935,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1290,
+          "y": 970,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-11",
+      "asset": "chair",
+      "type": "chair",
+      "x": 1215,
+      "y": 845,
+      "width": 150,
+      "height": 243,
+      "zIndex": 980,
+      "collisionBox": {
+        "x": 1235,
+        "y": 900,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1290,
+          "y": 960,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "desk-12",
+      "asset": "workDesk",
+      "type": "work-desk",
+      "x": 1385,
+      "y": 640,
+      "width": 360,
+      "height": 267,
+      "zIndex": 880,
+      "collisionBox": {
+        "x": 1405,
+        "y": 695,
+        "width": 320,
+        "height": 170
+      },
+      "anchorPoints": {
+        "work": {
+          "x": 1565,
+          "y": 935,
+          "facing": "north",
+          "characterState": "working-back"
+        },
+        "front": {
+          "x": 1565,
+          "y": 970,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "chair-12",
+      "asset": "chair",
+      "type": "chair",
+      "x": 1490,
+      "y": 845,
+      "width": 150,
+      "height": 243,
+      "zIndex": 980,
+      "collisionBox": {
+        "x": 1510,
+        "y": 900,
+        "width": 110,
+        "height": 115
+      },
+      "anchorPoints": {
+        "sit": {
+          "x": 1565,
+          "y": 960,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "plant-left",
+      "asset": "plant",
+      "type": "plant",
+      "x": 420,
+      "y": 230,
+      "width": 120,
+      "height": 144,
+      "zIndex": 374,
+      "collisionBox": {
+        "x": 455,
+        "y": 295,
+        "width": 52,
+        "height": 52
+      },
+      "anchorPoints": {
+        "inspect": {
+          "x": 520,
+          "y": 345,
+          "facing": "west"
+        }
+      }
+    },
+    {
+      "id": "plant-right",
+      "asset": "plant",
+      "type": "plant",
+      "x": 1665,
+      "y": 145,
+      "width": 120,
+      "height": 144,
+      "zIndex": 289,
+      "collisionBox": {
+        "x": 1700,
+        "y": 205,
+        "width": 52,
+        "height": 52
+      },
+      "anchorPoints": {
+        "inspect": {
+          "x": 1648,
+          "y": 260,
+          "facing": "east"
+        }
+      }
+    },
+    {
+      "id": "lounge-sofa",
+      "asset": "sofa",
+      "type": "sofa",
+      "x": 150,
+      "y": 730,
+      "width": 280,
+      "height": 248,
+      "zIndex": 978,
+      "collisionBox": {
+        "x": 180,
+        "y": 815,
+        "width": 220,
+        "height": 120
+      },
+      "anchorPoints": {
+        "rest": {
+          "x": 290,
+          "y": 835,
+          "facing": "south"
+        }
+      }
+    },
+    {
+      "id": "meeting-table",
+      "asset": "meetingTable",
+      "type": "meeting-table",
+      "x": 530,
+      "y": 770,
+      "width": 360,
+      "height": 251,
+      "zIndex": 1021,
+      "collisionBox": {
+        "x": 555,
+        "y": 830,
+        "width": 310,
+        "height": 130
+      },
+      "anchorPoints": {
+        "meet-north": {
+          "x": 710,
+          "y": 780,
+          "facing": "south"
+        },
+        "meet-south": {
+          "x": 710,
+          "y": 1010,
+          "facing": "north"
+        }
+      }
+    },
+    {
+      "id": "bookshelf-east",
+      "asset": "bookshelf",
+      "type": "bookshelf",
+      "x": 1570,
+      "y": 740,
+      "width": 240,
+      "height": 284,
+      "zIndex": 1024,
+      "collisionBox": {
+        "x": 1590,
+        "y": 810,
+        "width": 200,
+        "height": 165
+      },
+      "anchorPoints": {
+        "browse": {
+          "x": 1535,
+          "y": 910,
+          "facing": "east"
+        }
+      }
+    },
+    {
+      "id": "bookshelf-north",
+      "asset": "bookshelf",
+      "type": "bookshelf",
+      "x": 430,
+      "y": 95,
+      "width": 240,
+      "height": 284,
+      "zIndex": 379,
+      "collisionBox": {
+        "x": 455,
+        "y": 165,
+        "width": 190,
+        "height": 160
+      },
+      "anchorPoints": {
+        "browse": {
+          "x": 690,
+          "y": 250,
+          "facing": "west"
+        }
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "restroom-door-a",
+      "kind": "restroom",
+      "state": "closed",
+      "x": 112,
+      "y": 198,
+      "closedWidth": 120,
+      "closedHeight": 262,
+      "openWidth": 140,
+      "openHeight": 317,
+      "zIndex": 460,
+      "pivot": {
+        "x": 130,
+        "y": 222
+      },
+      "collisionBox": {
+        "x": 120,
+        "y": 240,
+        "width": 90,
+        "height": 120
+      },
+      "walkThroughArea": {
+        "x": 120,
+        "y": 320,
+        "width": 120,
+        "height": 80
+      },
+      "anchorPoints": {
+        "enter": {
+          "x": 250,
+          "y": 360,
+          "facing": "west"
+        },
+        "exit": {
+          "x": 120,
+          "y": 395,
+          "facing": "east"
+        }
+      }
+    },
+    {
+      "id": "restroom-door-b",
+      "kind": "restroom",
+      "state": "closed",
+      "x": 285,
+      "y": 198,
+      "closedWidth": 120,
+      "closedHeight": 262,
+      "openWidth": 140,
+      "openHeight": 317,
+      "zIndex": 460,
+      "pivot": {
+        "x": 303,
+        "y": 222
+      },
+      "collisionBox": {
+        "x": 293,
+        "y": 240,
+        "width": 90,
+        "height": 120
+      },
+      "walkThroughArea": {
+        "x": 293,
+        "y": 320,
+        "width": 120,
+        "height": 80
+      },
+      "anchorPoints": {
+        "enter": {
+          "x": 425,
+          "y": 360,
+          "facing": "west"
+        },
+        "exit": {
+          "x": 295,
+          "y": 395,
+          "facing": "east"
+        }
+      }
+    },
+    {
+      "id": "lounge-door",
+      "kind": "lounge",
+      "state": "closed",
+      "x": 315,
+      "y": 485,
+      "closedWidth": 120,
+      "closedHeight": 267,
+      "openWidth": 140,
+      "openHeight": 315,
+      "zIndex": 752,
+      "pivot": {
+        "x": 335,
+        "y": 505
+      },
+      "collisionBox": {
+        "x": 322,
+        "y": 520,
+        "width": 90,
+        "height": 105
+      },
+      "walkThroughArea": {
+        "x": 310,
+        "y": 620,
+        "width": 130,
+        "height": 80
+      },
+      "anchorPoints": {
+        "enter": {
+          "x": 455,
+          "y": 690,
+          "facing": "west"
+        },
+        "exit": {
+          "x": 315,
+          "y": 690,
+          "facing": "east"
+        }
+      }
+    }
+  ],
+  "walkableAreas": [
+    {
+      "id": "main-open-office",
+      "polygon": [
+        [
+          420,
+          150
+        ],
+        [
+          1710,
+          150
+        ],
+        [
+          1710,
+          730
+        ],
+        [
+          1260,
+          730
+        ],
+        [
+          1260,
+          990
+        ],
+        [
+          760,
+          990
+        ],
+        [
+          760,
+          720
+        ],
+        [
+          420,
+          720
+        ]
+      ]
+    },
+    {
+      "id": "lounge",
+      "polygon": [
+        [
+          95,
+          580
+        ],
+        [
+          470,
+          580
+        ],
+        [
+          470,
+          1010
+        ],
+        [
+          95,
+          1010
+        ]
+      ]
+    },
+    {
+      "id": "meeting",
+      "polygon": [
+        [
+          500,
+          720
+        ],
+        [
+          930,
+          720
+        ],
+        [
+          930,
+          1040
+        ],
+        [
+          500,
+          1040
+        ]
+      ]
+    },
+    {
+      "id": "break-storage",
+      "polygon": [
+        [
+          1160,
+          700
+        ],
+        [
+          1810,
+          700
+        ],
+        [
+          1810,
+          1010
+        ],
+        [
+          1160,
+          1010
+        ]
+      ]
+    }
+  ],
+  "waypoints": [
+    {
+      "id": "spawn-calf",
+      "x": 820,
+      "y": 860
+    },
+    {
+      "id": "spawn-pony",
+      "x": 1000,
+      "y": 860
+    },
+    {
+      "id": "main-center",
+      "x": 960,
+      "y": 520
+    },
+    {
+      "id": "restroom-hall",
+      "x": 470,
+      "y": 385
+    },
+    {
+      "id": "lounge-entry",
+      "x": 450,
+      "y": 690
+    },
+    {
+      "id": "meeting-entry",
+      "x": 710,
+      "y": 760
+    },
+    {
+      "id": "break-room",
+      "x": 1370,
+      "y": 850
+    },
+    {
+      "id": "north-desks",
+      "x": 1090,
+      "y": 330
+    }
+  ],
+  "characters": {
+    "calf": {
+      "name": "Calf",
+      "spawn": {
+        "x": 820,
+        "y": 860
+      },
+      "states": {
+        "walk": {
+          "sheet512": "characters/calf/walk-sheet-512.png",
+          "sheet256": "characters/calf/walk-sheet-256.png",
+          "webp": "characters/calf/walk.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "stand": {
+          "sheet512": "characters/calf/stand-sheet-512.png",
+          "sheet256": "characters/calf/stand-sheet-256.png",
+          "webp": "characters/calf/stand.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "sit": {
+          "sheet512": "characters/calf/sit-sheet-512.png",
+          "sheet256": "characters/calf/sit-sheet-256.png",
+          "webp": "characters/calf/sit.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "waiting": {
+          "sheet512": "characters/calf/waiting-sheet-512.png",
+          "sheet256": "characters/calf/waiting-sheet-256.png",
+          "webp": "characters/calf/waiting.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "working-back": {
+          "sheet512": "characters/calf/working-back-sheet-512.png",
+          "sheet256": "characters/calf/working-back-sheet-256.png",
+          "webp": "characters/calf/working-back.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        }
+      }
+    },
+    "pony": {
+      "name": "Pony",
+      "spawn": {
+        "x": 1000,
+        "y": 860
+      },
+      "states": {
+        "walk": {
+          "sheet512": "characters/pony/walk-sheet-512.png",
+          "sheet256": "characters/pony/walk-sheet-256.png",
+          "webp": "characters/pony/walk.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "stand": {
+          "sheet512": "characters/pony/stand-sheet-512.png",
+          "sheet256": "characters/pony/stand-sheet-256.png",
+          "webp": "characters/pony/stand.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "sit": {
+          "sheet512": "characters/pony/sit-sheet-512.png",
+          "sheet256": "characters/pony/sit-sheet-256.png",
+          "webp": "characters/pony/sit.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "waiting": {
+          "sheet512": "characters/pony/waiting-sheet-512.png",
+          "sheet256": "characters/pony/waiting-sheet-256.png",
+          "webp": "characters/pony/waiting.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        },
+        "working-back": {
+          "sheet512": "characters/pony/working-back-sheet-512.png",
+          "sheet256": "characters/pony/working-back-sheet-256.png",
+          "webp": "characters/pony/working-back.webp",
+          "frameWidth": 512,
+          "frameHeight": 512,
+          "frameCount": 4,
+          "frameDurationMs": 180
+        }
+      }
+    }
+  },
+  "layering": {
+    "base": 0,
+    "furniture": 10,
+    "characterBase": 1000,
+    "doors": 1500,
+    "labels": 3000,
+    "debug": 4000
+  }
+}

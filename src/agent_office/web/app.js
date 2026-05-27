@@ -8,12 +8,29 @@ let socket = null;
 const officeRuntimeNodes = new Map();
 const officeDeskNodes = new Map();
 const officeBehaviorState = new Map();
+const officeSceneFurnitureNodes = new Map();
+const officeSceneDoorNodes = new Map();
 const RUNTIME_ORDER = ["codex", "hermes", "claude_code"];
 const IDLE_ACTIVITIES = ["sleeping", "phone", "chatting"];
 const WAITING_SPRITE_STATUSES = new Set(["waiting_permission", "waiting_input", "blocked", "starting", "waiting"]);
 const OFFICE_WALK_MS = 2200;
 const OFFICE_BEHAVIOR_SLOT_MS = 60000;
+const OFFICE_SCENE_MANIFEST_URL = "/assets/office-scene-v2/scene-manifest.json";
+const OFFICE_SCENE_RUNTIME_DESK_IDS = {
+  codex: ["desk-01", "desk-02", "desk-03", "desk-04", "desk-05", "desk-06", "desk-07", "desk-08"],
+  hermes: ["desk-09", "desk-10", "desk-11", "desk-12"],
+  claude_code: ["desk-05", "desk-06", "desk-07", "desk-08"],
+};
+const OFFICE_SCENE_RUNTIME_LABELS = {
+  codex: { x: 1190, y: 84 },
+  hermes: { x: 1190, y: 806 },
+  claude_code: { x: 520, y: 806 },
+  other: { x: 92, y: 84 },
+};
 let officeRenderTimer = null;
+let officeSceneManifest = null;
+let officeSceneManifestPromise = null;
+let officeSceneBaseNode = null;
 const OFFICE_DESK_ANCHORS = {
   codex: [
     { x: 36.8, y: 18.7 },
@@ -153,8 +170,8 @@ function officeSpriteActivity(session, idleActivity) {
   if (idleActivity === "walk") {
     return "walk";
   }
-  if (session.status === "working") {
-    return "typing";
+  if (idleActivity === "working-back" || session.status === "working") {
+    return "working-back";
   }
   if (WAITING_SPRITE_STATUSES.has(String(session.status || ""))) {
     return "waiting";
@@ -186,6 +203,228 @@ function idleActivityForSession(session) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function officeSceneAssetPath(path) {
+  return `/assets/office-scene-v2/${path}`;
+}
+
+function loadOfficeSceneManifest() {
+  if (officeSceneManifest) {
+    return Promise.resolve(officeSceneManifest);
+  }
+  if (officeSceneManifestPromise) {
+    return officeSceneManifestPromise;
+  }
+  officeSceneManifestPromise = fetch(OFFICE_SCENE_MANIFEST_URL, { headers: headers() })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Office scene request failed: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((manifest) => {
+      officeSceneManifest = manifest;
+      if (activeView === "office") {
+        renderOffice();
+      }
+      return manifest;
+    })
+    .catch((error) => {
+      officeSceneManifestPromise = null;
+      connectionStatus.textContent = error.message;
+      throw error;
+    });
+  return officeSceneManifestPromise;
+}
+
+function officeSceneDeskEntries(manifest) {
+  return (manifest?.furniture || []).filter((item) => item.type === "work-desk");
+}
+
+function officeSceneDeskEntriesForRuntime(manifest, runtimeType) {
+  const desks = officeSceneDeskEntries(manifest);
+  const groupIds = OFFICE_SCENE_RUNTIME_DESK_IDS[runtimeType] || [];
+  const grouped = desks.filter((desk) => groupIds.includes(desk.id));
+  return grouped.length > 0 ? grouped : desks;
+}
+
+function officeSceneFurnitureById(manifest, furnitureId) {
+  return (manifest?.furniture || []).find((item) => item.id === furnitureId) || null;
+}
+
+function officeSceneWaypoint(manifest, waypointId) {
+  return (manifest?.waypoints || []).find((item) => item.id === waypointId) || null;
+}
+
+function officeSceneCharacterZIndex(y) {
+  return Number(officeSceneManifest?.layering?.characterBase || 1000) + Math.round(Number(y || 0));
+}
+
+function officeDeskAnchorForSession(session, sessionIndex) {
+  const manifest = officeSceneManifest;
+  if (!manifest) {
+    return {
+      deskId: "fallback-desk",
+      front: { x: 960, y: 860, place: "desk", label: "工位" },
+      work: { x: 960, y: 820, place: "desk", label: "工位", characterState: "working-back" },
+      zIndex: 900,
+    };
+  }
+  const desks = officeSceneDeskEntriesForRuntime(manifest, session.runtime_type || "other");
+  const desk = desks[sessionIndex % Math.max(desks.length, 1)] || officeSceneDeskEntries(manifest)[0];
+  const front = desk?.anchorPoints?.front || desk?.anchorPoints?.work;
+  const work = desk?.anchorPoints?.work || front;
+  const wrap = Math.floor(sessionIndex / Math.max(desks.length || 1, 1));
+  const wrapX = wrap % 2 === 0 ? 0 : 28;
+  const wrapY = Math.floor(wrap / 2) * 20;
+  return {
+    deskId: desk?.id || "fallback-desk",
+    front: {
+      x: clamp(Number(front?.x || 960) + wrapX, 120, Number(manifest.canvas?.width || 1920) - 120),
+      y: clamp(Number(front?.y || 860) + wrapY, 120, Number(manifest.canvas?.height || 1080) - 36),
+      place: "desk",
+      label: "工位",
+    },
+    work: {
+      x: clamp(Number(work?.x || 960) + wrapX, 120, Number(manifest.canvas?.width || 1920) - 120),
+      y: clamp(Number(work?.y || 820) + wrapY, 120, Number(manifest.canvas?.height || 1080) - 36),
+      place: "desk",
+      label: "工位",
+      characterState: work?.characterState || "working-back",
+    },
+    zIndex: Number(desk?.zIndex || 900),
+  };
+}
+
+function officeIdleAnchorForPlan(plan, session, sessionIndex) {
+  if (!plan || plan.place === "desk") {
+    const desk = officeDeskAnchorForSession(session, sessionIndex);
+    return {
+      ...desk.front,
+      zIndex: officeSceneCharacterZIndex(desk.front.y),
+      doorKind: null,
+    };
+  }
+  const manifest = officeSceneManifest;
+  if (!manifest) {
+    return {
+      place: "lounge",
+      label: "休息区",
+      x: 280,
+      y: 835,
+      zIndex: officeSceneCharacterZIndex(835),
+      doorKind: "lounge",
+    };
+  }
+  const sofa = officeSceneFurnitureById(manifest, "lounge-sofa");
+  const meetingTable = officeSceneFurnitureById(manifest, "meeting-table");
+  const eastShelf = officeSceneFurnitureById(manifest, "bookshelf-east");
+  const breakRoom = officeSceneWaypoint(manifest, "break-room");
+  const anchors = [
+    {
+      place: "lounge",
+      label: "休息室",
+      x: sofa?.anchorPoints?.rest?.x || 290,
+      y: sofa?.anchorPoints?.rest?.y || 835,
+      doorKind: "lounge",
+    },
+    {
+      place: "lounge",
+      label: "会议桌",
+      x: meetingTable?.anchorPoints?.["meet-south"]?.x || 710,
+      y: meetingTable?.anchorPoints?.["meet-south"]?.y || 1010,
+      doorKind: null,
+    },
+    {
+      place: "lounge",
+      label: "茶水间",
+      x: breakRoom?.x || 1370,
+      y: breakRoom?.y || 850,
+      doorKind: null,
+    },
+    {
+      place: "lounge",
+      label: "书架",
+      x: eastShelf?.anchorPoints?.browse?.x || 1535,
+      y: eastShelf?.anchorPoints?.browse?.y || 910,
+      doorKind: null,
+    },
+  ];
+  const anchor = anchors[plan.loungeIndex % anchors.length];
+  const spread = plan.memberCount > 1 ? plan.memberIndex - (plan.memberCount - 1) / 2 : 0;
+  const offsetY = plan.memberCount > 1 ? (plan.memberIndex % 2) * 10 : 0;
+  const canvasWidth = Number(manifest.canvas?.width || 1920);
+  const canvasHeight = Number(manifest.canvas?.height || 1080);
+  const x = clamp(Number(anchor.x) + spread * 62, 90, canvasWidth - 90);
+  const y = clamp(Number(anchor.y) + offsetY, 120, canvasHeight - 42);
+  return {
+    place: anchor.place,
+    label: anchor.label,
+    x,
+    y,
+    zIndex: officeSceneCharacterZIndex(y),
+    doorKind: anchor.doorKind,
+  };
+}
+
+function renderOfficeSceneBase(manifest) {
+  if (!officeSceneBaseNode) {
+    officeSceneBaseNode = document.createElement("div");
+    officeSceneBaseNode.className = "office-scene-base";
+  }
+  officeSceneBaseNode.style.backgroundImage = `url("${officeSceneAssetPath(manifest.assets.background)}")`;
+  if (officeSceneBaseNode.parentNode !== officeView) {
+    officeView.prepend(officeSceneBaseNode);
+  }
+}
+
+function renderOfficeSceneFurniture(manifest) {
+  for (const item of manifest.furniture || []) {
+    let node = officeSceneFurnitureNodes.get(item.id);
+    if (!node) {
+      node = document.createElement("img");
+      node.className = "office-scene-prop";
+      node.alt = "";
+      node.dataset.sceneId = item.id;
+      officeSceneFurnitureNodes.set(item.id, node);
+    }
+    node.src = officeSceneAssetPath(manifest.assets.furniture[item.asset]);
+    node.style.left = `${item.x}px`;
+    node.style.top = `${item.y}px`;
+    node.style.width = `${item.width}px`;
+    node.style.height = `${item.height}px`;
+    node.style.zIndex = String(item.zIndex);
+    if (node.parentNode !== officeView) {
+      officeView.append(node);
+    }
+  }
+}
+
+function renderOfficeSceneDoors(manifest, occupiedDoorKinds = new Set()) {
+  for (const door of manifest.doors || []) {
+    let node = officeSceneDoorNodes.get(door.id);
+    if (!node) {
+      node = document.createElement("img");
+      node.className = "office-scene-door";
+      node.alt = "";
+      node.dataset.sceneId = door.id;
+      officeSceneDoorNodes.set(door.id, node);
+    }
+    const nextState = occupiedDoorKinds.has(door.kind) ? "open" : door.state || "closed";
+    const nextWidth = nextState === "open" ? door.openWidth : door.closedWidth;
+    const nextHeight = nextState === "open" ? door.openHeight : door.closedHeight;
+    node.src = officeSceneAssetPath(manifest.assets.doors[door.kind][nextState]);
+    node.style.left = `${door.x}px`;
+    node.style.top = `${door.y}px`;
+    node.style.width = `${nextWidth}px`;
+    node.style.height = `${nextHeight}px`;
+    node.style.zIndex = String(door.zIndex);
+    node.dataset.doorState = nextState;
+    if (node.parentNode !== officeView) {
+      officeView.append(node);
+    }
+  }
 }
 
 function officeDeskPosition(runtimeType, sessionIndex) {
@@ -266,24 +505,25 @@ function scheduleOfficeRender(delayMs) {
 }
 
 function officeBehaviorForSession(session, sessionIndex, idlePlans, now) {
-  const deskPosition = officeDeskPosition(session.runtime_type, sessionIndex);
+  const deskAnchor = officeDeskAnchorForSession(session, sessionIndex);
   const key = sessionKey(session);
   const previous = officeBehaviorState.get(key) || {};
-  let target = deskPosition;
-  let activity = session.status === "working" ? "typing" : idleActivityForSession(session);
+  let target = deskAnchor.front;
+  let activity = session.status === "working" ? deskAnchor.work.characterState || "working-back" : "stand";
+  let actorZIndex = officeSceneCharacterZIndex(target.y);
   if (session.status === "idle") {
     const plan = idlePlans.get(key);
-    activity = plan?.activity || activity;
-    if (plan?.place === "lounge") {
-      target = officeLoungePosition(plan.loungeIndex, plan.memberIndex, plan.memberCount);
-    }
+    activity = plan?.activity || idleActivityForSession(session);
+    target = officeIdleAnchorForPlan(plan, session, sessionIndex);
+    actorZIndex = target.zIndex || officeSceneCharacterZIndex(target.y);
   }
 
   const walkFrom = previous.position || target;
   const targetKey = `${target.place}:${Math.round(target.x)}:${Math.round(target.y)}:${session.status}`;
   let walkUntil = Number(previous.walkUntil || 0);
-  if (session.status === "working" && previous.status && previous.status !== "working") {
-    if (previous.targetKey !== targetKey || walkUntil <= now) {
+  if (session.status === "working") {
+    target = deskAnchor.front;
+    if (previous.status && previous.status !== "working" && (previous.targetKey !== targetKey || walkUntil <= now)) {
       walkUntil = now + OFFICE_WALK_MS;
     }
   }
@@ -292,6 +532,10 @@ function officeBehaviorForSession(session, sessionIndex, idlePlans, now) {
   if (walkingToDesk) {
     activity = "walk";
     scheduleOfficeRender(walkUntil - now + 40);
+  } else if (session.status === "working") {
+    target = deskAnchor.work;
+    activity = deskAnchor.work.characterState || "working-back";
+    actorZIndex = deskAnchor.zIndex - 1;
   }
 
   officeBehaviorState.set(key, {
@@ -306,6 +550,8 @@ function officeBehaviorForSession(session, sessionIndex, idlePlans, now) {
     target,
     walkFrom,
     walkingToDesk,
+    actorZIndex: walkingToDesk ? officeSceneCharacterZIndex(target.y) : actorZIndex,
+    doorKind: target.doorKind || null,
   };
 }
 
@@ -463,16 +709,19 @@ function renderDetail() {
 }
 
 function renderOffice() {
-  const emptyOfficeNode = officeView.querySelector("[data-office-empty]");
-  if (state.sessions.length === 0) {
-    removeStaleOfficeNodes(new Set(), new Set());
-    if (!emptyOfficeNode) {
-      const empty = emptyNode("No active desks");
+  if (!officeSceneManifest) {
+    loadOfficeSceneManifest().catch(() => {});
+    const loading = officeView.querySelector("[data-office-empty]");
+    if (!loading) {
+      const empty = emptyNode("Loading office scene");
       empty.dataset.officeEmpty = "true";
       officeView.append(empty);
     }
     return;
   }
+  renderOfficeSceneBase(officeSceneManifest);
+  const emptyOfficeNode = officeView.querySelector("[data-office-empty]");
+  renderOfficeSceneFurniture(officeSceneManifest);
   if (emptyOfficeNode) {
     emptyOfficeNode.remove();
   }
@@ -498,6 +747,7 @@ function renderOffice() {
 
   const activeRuntimeKeys = new Set();
   const activeDeskKeys = new Set();
+  const occupiedDoorKinds = new Set();
   const idlePlans = officeIdlePlans(sessionsByRuntime, Date.now());
   const runtimeSessionIndexes = new Map();
   Array.from(sessionsByRuntime.entries())
@@ -517,11 +767,15 @@ function renderOffice() {
     const deskKey = sessionKey(session);
     activeDeskKeys.add(deskKey);
     const desk = ensureOfficeDeskNode(deskKey);
-    updateOfficeDeskNode(desk, session, sessionIndex, machinesById.get(session.machine_id), idlePlans);
+    const behavior = updateOfficeDeskNode(desk, session, sessionIndex, machinesById.get(session.machine_id), idlePlans);
+    if (behavior?.doorKind) {
+      occupiedDoorKinds.add(behavior.doorKind);
+    }
     officeView.append(desk);
   });
+  renderOfficeSceneDoors(officeSceneManifest, occupiedDoorKinds);
 
-  if (activeRuntimeKeys.size === 0 && !officeView.querySelector("[data-office-empty]")) {
+  if (activeDeskKeys.size === 0 && !officeView.querySelector("[data-office-empty]")) {
     const empty = emptyNode("No active desks");
     empty.dataset.officeEmpty = "true";
     officeView.append(empty);
@@ -690,6 +944,9 @@ function updateOfficeRuntimeNode(node, runtimeType, sessions) {
   const mascot = node.querySelector('[data-field="runtime-mascot"]');
   mascot.className = `runtime-mascot ${mascotForRuntime(runtimeType)}`;
   mascot.textContent = runtimeType === "codex" ? "calf" : runtimeType === "hermes" ? "pony" : "agent";
+  const position = OFFICE_SCENE_RUNTIME_LABELS[runtimeType] || OFFICE_SCENE_RUNTIME_LABELS.other;
+  node.style.setProperty("--runtime-x", `${position.x}px`);
+  node.style.setProperty("--runtime-y", `${position.y}px`);
 }
 
 function ensureOfficeDeskNode(deskKey) {
@@ -700,9 +957,8 @@ function ensureOfficeDeskNode(deskKey) {
   const node = document.createElement("button");
   node.type = "button";
   node.innerHTML = `
-    <span class="desk-scene office-asset-scene">
-      <span class="generated-agent" data-field="office-agent" aria-hidden="true"></span>
-      <span class="generated-desk" aria-hidden="true"></span>
+    <span class="office-actor" aria-hidden="true">
+      <span class="generated-agent" data-field="office-agent"></span>
     </span>
     <span class="office-desk-copy">
       <strong data-field="project"></strong>
@@ -735,20 +991,14 @@ function updateOfficeDeskNode(node, session, sessionIndex, machine, idlePlans) {
   }
   node.dataset.sessionKey = deskKey;
   node.style.setProperty("--desk-index", String(sessionIndex));
-  node.style.setProperty("--actor-x", `${behavior.target.x}%`);
-  node.style.setProperty("--actor-y", `${behavior.target.y}%`);
-  node.style.setProperty("--walk-from-x", `${behavior.walkFrom.x}%`);
-  node.style.setProperty("--walk-from-y", `${behavior.walkFrom.y}%`);
-  node.style.setProperty("--actor-z", String(Math.round(behavior.target.y * 10)));
+  node.style.setProperty("--actor-x", `${behavior.target.x}px`);
+  node.style.setProperty("--actor-y", `${behavior.target.y}px`);
+  node.style.setProperty("--walk-from-x", `${behavior.walkFrom.x}px`);
+  node.style.setProperty("--walk-from-y", `${behavior.walkFrom.y}px`);
+  node.style.setProperty("--actor-z", String(behavior.actorZIndex));
+  node.style.setProperty("--label-z", String(Number(officeSceneManifest?.layering?.labels || 3000)));
 
-  const person = node.querySelector(".agent-person");
   const mascotClass = mascotForRuntime(session.runtime_type);
-  if (person) {
-    const personClassName = ["agent-person", mascotClass, status, activityClass].join(" ");
-    if (person.className !== personClassName) {
-      person.className = personClassName;
-    }
-  }
   const generatedAgent = node.querySelector('[data-field="office-agent"]');
   const spriteCharacter = officeSpriteCharacter(session.runtime_type);
   const spriteActivity = officeSpriteActivity(session, activity);
@@ -766,6 +1016,8 @@ function updateOfficeDeskNode(node, session, sessionIndex, machine, idlePlans) {
   node.querySelector('[data-field="project"]').textContent = officeTaskText(session);
   node.querySelector('[data-field="runtime"]').textContent =
     `${runtimeInitial(session.runtime_type)} / ${session.project_name || machine?.hostname || session.machine_id} / ${session.status || "unknown"}`;
+  node.dataset.doorKind = behavior.doorKind || "";
+  return behavior;
 }
 
 function removeStaleOfficeNodes(activeRuntimeKeys, activeDeskKeys) {
